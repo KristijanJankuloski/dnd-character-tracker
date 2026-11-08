@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../domain/models.dart';
 import '../../domain/rules.dart';
+import '../../domain/tables.dart';
 import '../character/character_bloc.dart';
 import '../character/character_event.dart';
 import '../character/loaded_builder.dart';
@@ -26,33 +28,7 @@ class CombatScreen extends StatelessWidget {
         );
         final features = c.features.isEmpty
             ? const SizedBox.shrink()
-            : Panel(
-                title: 'Features',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final f in c.features)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              f.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              f.text,
-                              style: const TextStyle(color: Palette.textDim),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              );
+            : FeaturesPanel(state: s);
         if (tablet) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -91,6 +67,173 @@ class CombatScreen extends StatelessWidget {
       },
     );
   }
+}
+
+/// Class features. Metamagic gets a picker for the chosen options.
+class FeaturesPanel extends StatelessWidget {
+  const FeaturesPanel({super.key, required this.state});
+  final CharacterLoaded state;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = state.character;
+    return Panel(
+      title: 'Features',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final f in c.features)
+            if (f.name == 'Metamagic')
+              _MetamagicFeature(feature: f, character: c)
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      f.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      f.text,
+                      style: const TextStyle(color: Palette.textDim),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+int _sorcererLevel(Character c) => c.classes
+    .where((x) => x.className == 'Sorcerer')
+    .fold(0, (s, x) => s + x.level);
+
+class _MetamagicFeature extends StatelessWidget {
+  const _MetamagicFeature({required this.feature, required this.character});
+  final Feature feature;
+  final Character character;
+
+  @override
+  Widget build(BuildContext context) {
+    final allowed = metamagicKnownFor(_sorcererLevel(character));
+    final chosen = metamagicOptions
+        .where((o) => character.metamagic.contains(o.name))
+        .toList();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Metamagic${allowed > 0 ? ' (${chosen.length}/$allowed)' : ''}',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.auto_fix_high, size: 18),
+                label: Text(chosen.isEmpty ? 'Choose' : 'Change'),
+                onPressed: () => showMetamagicPicker(context, character),
+              ),
+            ],
+          ),
+          if (chosen.isEmpty)
+            Text(
+              allowed == 0
+                  ? 'Sorcerers choose Metamagic options from level 3.'
+                  : 'No options chosen yet. You can pick $allowed.',
+              style: const TextStyle(color: Palette.textDim),
+            )
+          else
+            for (final o in chosen)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${o.name} (${o.cost}): ',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextSpan(
+                        text: o.text,
+                        style: const TextStyle(color: Palette.textDim),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lets the player pick Metamagic options. Going over the level allowance is
+/// allowed (house rules) but the count turns to a warning colour.
+Future<void> showMetamagicPicker(BuildContext context, Character c) {
+  final bloc = context.read<CharacterBloc>();
+  final allowed = metamagicKnownFor(_sorcererLevel(c));
+  final picked = {...c.metamagic};
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Metamagic'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${picked.length} of $allowed chosen',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: picked.length > allowed
+                        ? Palette.warn
+                        : Palette.textDim,
+                  ),
+                ),
+                for (final o in metamagicOptions)
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: picked.contains(o.name),
+                    title: Text('${o.name} · ${o.cost}'),
+                    subtitle: Text(o.text),
+                    onChanged: (v) => setState(
+                      () => v == true
+                          ? picked.add(o.name)
+                          : picked.remove(o.name),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              bloc.add(MetamagicSet(picked));
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Action / Bonus Action / Reaction toggles plus movement.

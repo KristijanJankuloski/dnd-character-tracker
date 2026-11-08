@@ -1035,6 +1035,32 @@ ActionResult setFlag(Character c, String flag, bool on) {
   );
 }
 
+/// Replace the chosen Metamagic options. Warns (never blocks) when the
+/// choice goes over what the sorcerer's level allows.
+ActionResult setMetamagic(Character c, Set<String> chosen) {
+  final known = {for (final o in metamagicOptions) o.name};
+  final picked = {...chosen.where(known.contains)};
+  final sorcererLevel = c.classes
+      .where((x) => x.className == 'Sorcerer')
+      .fold(0, (s, x) => s + x.level);
+  final allowed = metamagicKnownFor(sorcererLevel);
+  final warnings = <String>[
+    if (picked.length > allowed)
+      allowed == 0
+          ? 'Sorcerers learn Metamagic at level 3.'
+          : 'A level $sorcererLevel sorcerer knows $allowed Metamagic options; ${picked.length} chosen.',
+  ];
+  final names = metamagicOptions
+      .where((o) => picked.contains(o.name))
+      .map((o) => o.name)
+      .toList();
+  return ActionResult(
+    c.copyWith(metamagic: picked),
+    names.isEmpty ? 'Cleared Metamagic' : 'Metamagic: ${names.join(', ')}',
+    warnings: warnings,
+  );
+}
+
 ActionResult setSkill(Character c, Skill skill) {
   final cur = c.skills[skill] ?? Proficiency.none;
   final next = Proficiency.values[(cur.index + 1) % Proficiency.values.length];

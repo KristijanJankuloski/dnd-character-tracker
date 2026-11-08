@@ -41,6 +41,67 @@ int proficiencyForLevel(int level) => 2 + ((level.clamp(1, 20) - 1) ~/ 4);
 const Map<int, int> sorceryPointSlotCost = {1: 2, 2: 3, 3: 5, 4: 6, 5: 7};
 
 /// Hit dice per class.
+/// Sorcerer Metamagic options (SRD 5.1).
+class MetamagicOption {
+  const MetamagicOption(this.name, this.cost, this.text);
+  final String name;
+
+  /// Sorcery Point cost as written (some scale with spell level).
+  final String cost;
+  final String text;
+}
+
+const List<MetamagicOption> metamagicOptions = [
+  MetamagicOption(
+    'Careful Spell',
+    '1 SP',
+    'Choose up to CHA modifier creatures (min 1); they automatically succeed on the spell\'s saving throw.',
+  ),
+  MetamagicOption(
+    'Distant Spell',
+    '1 SP',
+    'Double the range of a spell with range 5 ft or more, or make a touch spell 30 ft.',
+  ),
+  MetamagicOption(
+    'Empowered Spell',
+    '1 SP',
+    'Reroll up to CHA modifier damage dice (min 1) and use the new rolls. Combines with other Metamagic.',
+  ),
+  MetamagicOption(
+    'Extended Spell',
+    '1 SP',
+    'Double the duration of a spell lasting 1 minute or longer, up to 24 hours.',
+  ),
+  MetamagicOption(
+    'Heightened Spell',
+    '3 SP',
+    'One target of the spell has disadvantage on its first saving throw against it.',
+  ),
+  MetamagicOption(
+    'Quickened Spell',
+    '2 SP',
+    'Cast a spell with a casting time of 1 action as a bonus action instead.',
+  ),
+  MetamagicOption(
+    'Subtle Spell',
+    '1 SP',
+    'Cast without somatic or verbal components.',
+  ),
+  MetamagicOption(
+    'Twinned Spell',
+    'SP = spell level (1 for cantrips)',
+    'Target a second creature with a spell that targets only one creature and is not range self.',
+  ),
+];
+
+/// How many Metamagic options a sorcerer of [sorcererLevel] knows.
+int metamagicKnownFor(int sorcererLevel) {
+  if (sorcererLevel >= 17) return 4;
+  if (sorcererLevel >= 10) return 3;
+  if (sorcererLevel >= 3) return 2;
+  return 0;
+}
+
 const Map<String, int> hitDieByClass = {
   'Barbarian': 12,
   'Bard': 8,

@@ -1,4 +1,5 @@
 import 'package:jjs_character_tracker/core/app.dart';
+import 'package:jjs_character_tracker/core/theme.dart';
 import 'package:jjs_character_tracker/data/database.dart';
 import 'package:jjs_character_tracker/data/drift_repository.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
@@ -172,6 +173,62 @@ void main() {
       await db.close();
     },
   );
+
+  testWidgets('metamagic can be chosen from the Combat features panel', (
+    tester,
+  ) async {
+    final c = await seed(tester);
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Combat'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Choose'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Metamagic (0/2)'), findsOneWidget);
+    await tester.tap(find.text('Choose'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.textContaining('Quickened Spell'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Quickened Spell'));
+    await tester.pump();
+    await tester.ensureVisible(find.textContaining('Twinned Spell'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Twinned Spell'));
+    await tester.pump();
+    expect(find.text('2 of 2 chosen'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Metamagic (2/2)'), findsOneWidget);
+    final saved = await tester.runAsync(() => repo.get(c.id));
+    expect(saved!.metamagic, {'Quickened Spell', 'Twinned Spell'});
+    await db.close();
+  });
+
+  testWidgets('equipment rows use dark ink on the parchment panel', (
+    tester,
+  ) async {
+    await seed(tester);
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Items'));
+    await tester.pumpAndSettle();
+    final title = find.text('Arcane Focus');
+    await tester.ensureVisible(title);
+    await tester.pumpAndSettle();
+    final style = DefaultTextStyle.of(tester.element(title)).style;
+    expect(style.color, Palette.ink);
+    await db.close();
+  });
 
   testWidgets('tablet layout shows a navigation rail', (tester) async {
     await seed(tester);
