@@ -365,6 +365,21 @@ class Resource {
   );
 }
 
+/// Shape of a spell's area of effect or targeting.
+enum AreaShape {
+  none('None'),
+  singleTarget('Single target'),
+  multipleTargets('Multiple targets'),
+  radius('Radius / sphere'),
+  cone('Cone'),
+  line('Line'),
+  cube('Cube'),
+  cylinder('Cylinder');
+
+  const AreaShape(this.label);
+  final String label;
+}
+
 class Spell {
   const Spell({
     required this.id,
@@ -380,6 +395,9 @@ class Spell {
     this.save,
     this.attackRoll = false,
     this.text = '',
+    this.damageType = '',
+    this.areaShape = AreaShape.none,
+    this.areaSize = '',
   });
 
   final String id;
@@ -395,6 +413,11 @@ class Spell {
   final Ability? save;
   final bool attackRoll;
   final String text;
+
+  /// Optional detail fields (empty/none for older saves and SRD spells).
+  final String damageType;
+  final AreaShape areaShape;
+  final String areaSize;
 
   bool get isCantrip => level == 0;
 
@@ -412,6 +435,9 @@ class Spell {
     save: save,
     attackRoll: attackRoll,
     text: text,
+    damageType: damageType,
+    areaShape: areaShape,
+    areaSize: areaSize,
   );
 
   Map<String, Object?> toJson() => {
@@ -428,6 +454,9 @@ class Spell {
     'save': save?.name,
     'attackRoll': attackRoll,
     'text': text,
+    'damageType': damageType,
+    'areaShape': areaShape.name,
+    'areaSize': areaSize,
   };
 
   factory Spell.fromJson(Map<String, Object?> j) => Spell(
@@ -448,6 +477,9 @@ class Spell {
     save: j['save'] == null ? null : Ability.parse(j['save'] as String),
     attackRoll: (j['attackRoll'] as bool?) ?? false,
     text: (j['text'] as String?) ?? '',
+    damageType: (j['damageType'] as String?) ?? '',
+    areaShape: _enum(AreaShape.values, j['areaShape'], AreaShape.none),
+    areaSize: (j['areaSize'] as String?) ?? '',
   );
 }
 

@@ -360,6 +360,9 @@ class _SpellTile extends StatelessWidget {
           'Casting time: ${castingLabel(spell.castingTime)}',
           if (spell.range.isNotEmpty) 'Range: ${spell.range}',
           if (spell.damage.isNotEmpty) 'Effect: ${spell.damage}',
+          if (spell.damageType.isNotEmpty) 'Damage type: ${spell.damageType}',
+          if (spell.areaShape != AreaShape.none)
+            'Area/target: ${spell.areaShape.label}${spell.areaSize.isNotEmpty ? ' (${spell.areaSize})' : ''}',
           if (spell.save != null) 'Save: ${spell.save!.abbr}',
           if (spell.concentration) 'Concentration',
           if (spell.ritual) 'Ritual',
@@ -551,6 +554,11 @@ class _SpellPickerState extends State<_SpellPicker> {
     var time = CastingTime.action;
     var conc = false;
     var ritual = false;
+    final range = TextEditingController();
+    final damageType = TextEditingController();
+    var shape = AreaShape.none;
+    final areaSize = TextEditingController();
+    final desc = TextEditingController();
     return showDialog<Spell>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -588,6 +596,65 @@ class _SpellPickerState extends State<_SpellPicker> {
                   ],
                   onChanged: (v) => set(() => time = v ?? CastingTime.action),
                 ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: range,
+                  decoration: InputDecoration(
+                    labelText: 'Range',
+                    hintText: 'Self, Touch, 30 ft...',
+                    suffixIcon: PopupMenuButton<String>(
+                      icon: const Icon(Icons.arrow_drop_down),
+                      onSelected: (v) => range.text = v,
+                      itemBuilder: (_) => [
+                        for (final r in const [
+                          'Self',
+                          'Touch',
+                          '30 ft',
+                          '60 ft',
+                          '120 ft',
+                        ])
+                          PopupMenuItem(value: r, child: Text(r)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: damageType,
+                  decoration: const InputDecoration(
+                    labelText: 'Damage type',
+                    hintText: 'fire, cold, none...',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<AreaShape>(
+                  initialValue: shape,
+                  decoration: const InputDecoration(labelText: 'Area / target'),
+                  items: [
+                    for (final a in AreaShape.values)
+                      DropdownMenuItem(value: a, child: Text(a.label)),
+                  ],
+                  onChanged: (v) => set(() => shape = v ?? AreaShape.none),
+                ),
+                if (shape != AreaShape.none &&
+                    shape != AreaShape.singleTarget) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: areaSize,
+                    decoration: const InputDecoration(
+                      labelText: 'Size (optional)',
+                      hintText: '20 ft',
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                TextField(
+                  controller: desc,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Short description',
+                  ),
+                ),
                 CheckboxListTile(
                   value: conc,
                   onChanged: (v) => set(() => conc = v ?? false),
@@ -620,6 +687,15 @@ class _SpellPickerState extends State<_SpellPicker> {
                     castingTime: time,
                     concentration: conc,
                     ritual: ritual,
+                    range: range.text.trim(),
+                    damageType: damageType.text.trim(),
+                    areaShape: shape,
+                    areaSize:
+                        shape == AreaShape.none ||
+                            shape == AreaShape.singleTarget
+                        ? ''
+                        : areaSize.text.trim(),
+                    text: desc.text.trim(),
                   ),
                 );
               },
