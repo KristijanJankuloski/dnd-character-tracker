@@ -1,6 +1,8 @@
 /// Builds a new character from a class template.
 library;
 
+import 'package:uuid/uuid.dart';
+
 import 'class_templates.dart';
 import 'models.dart';
 import 'rules.dart';
@@ -25,7 +27,7 @@ Character createCharacter({
 }) {
   final t = classTemplates[className]!;
   var c = Character(
-    id: newId('char'),
+    id: const Uuid().v4(),
     name: name.trim().isEmpty ? 'Unnamed' : name.trim(),
     race: race,
     background: background,
