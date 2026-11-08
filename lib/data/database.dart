@@ -33,17 +33,85 @@ class LogEntries extends Table {
   IntColumn get createdAt => integer()();
 }
 
-@DriftDatabase(tables: [Characters, LogEntries])
+/// A deleted character, kept so that deleting it on one device deletes it on
+/// the others instead of the other device sending it back.
+@DataClassName('TombstoneRow')
+class Tombstones extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text().withDefault(const Constant(''))();
+  IntColumn get updatedAt => integer().withDefault(const Constant(0))();
+  IntColumn get deletedAt => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Devices this one has been paired with.
+@DataClassName('PeerRow')
+class SyncPeers extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+
+  /// Shared secret, base64.
+  TextColumn get key => text()();
+  IntColumn get pairedAt => integer()();
+  IntColumn get lastSyncAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// What this device and a peer last agreed on for each character, each time in
+/// its own device's clock.
+@DataClassName('BaseRow')
+class SyncBases extends Table {
+  TextColumn get peerId => text()();
+  TextColumn get characterId => text()();
+  IntColumn get localTime => integer()();
+  IntColumn get remoteTime => integer()();
+
+  @override
+  Set<Column> get primaryKey => {peerId, characterId};
+}
+
+/// Small key/value settings (this device's sync id and name).
+@DataClassName('SettingRow')
+class SyncSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+@DriftDatabase(
+  tables: [
+    Characters,
+    LogEntries,
+    Tombstones,
+    SyncPeers,
+    SyncBases,
+    SyncSettings,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'jjs_character_tracker'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(tombstones);
+        await m.createTable(syncPeers);
+        await m.createTable(syncBases);
+        await m.createTable(syncSettings);
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

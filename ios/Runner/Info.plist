@@ -27,7 +27,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>The camera scans the code another device shows when sharing a character.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Shared characters are sent directly between devices on your Wi-Fi network.</string>
+	<string>Characters are sent directly between your devices on your Wi-Fi network, to share one by QR code or to sync nearby devices.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_jjct-sync._tcp</string>
+	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a picture of a share code to read it.</string>
 	<key>LSRequiresIPhoneOS</key>

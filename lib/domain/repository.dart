@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'models.dart';
+import 'sync.dart';
 
 /// Parses a character backup or shared character. Throws [FormatException]
 /// when it is not one, or comes from a newer version of the app.
@@ -80,4 +81,33 @@ abstract class CharacterRepository {
   /// a new id. Otherwise it keeps its id, and if a character with that id is
   /// already here it is replaced (and the replacement can be undone).
   Future<Character> receive(Character c, {bool asCopy = false});
+
+  // --- Syncing with nearby devices -------------------------------------
+
+  /// Gives every character whose id is not a UUID (the early `char-…` ids) a
+  /// new UUID, so ids from different devices can never collide. Returns how
+  /// many were changed.
+  Future<int> assignLegacyIds();
+
+  /// Summaries of every character and every deleted character, for syncing.
+  Future<List<SyncSummary>> syncSummaries();
+
+  /// The character as JSON for sending to another device, or null if it is
+  /// not here.
+  Future<String?> exportForSync(String id);
+
+  /// Saves a character received through sync. [remoteTime] is its last-change
+  /// time on the other device and [skewMs] how far that device's clock is
+  /// ahead of this one, so the time kept here means the same thing as the
+  /// times of local edits. Returns the time it was stored with.
+  Future<int> applySynced(Character c, {required int remoteTime, int skewMs});
+
+  /// Deletes a character because the other device deleted it. Returns the
+  /// local deletion time, or null if the character was already gone.
+  Future<int> applySyncedDelete(
+    String id, {
+    required String name,
+    required int remoteTime,
+    int skewMs,
+  });
 }
