@@ -1,0 +1,173 @@
+import 'package:dnd_tracker/core/app.dart';
+import 'package:dnd_tracker/data/database.dart';
+import 'package:dnd_tracker/data/drift_repository.dart';
+import 'package:dnd_tracker/domain/character_factory.dart';
+import 'package:dnd_tracker/domain/models.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  late AppDatabase db;
+  late DriftCharacterRepository repo;
+
+  setUp(() {
+    db = AppDatabase(NativeDatabase.memory());
+    repo = DriftCharacterRepository(db);
+  });
+
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    Size size = const Size(412, 915),
+  }) async {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(DnDApp(repository: repo));
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+
+  Future<Character> seed(WidgetTester tester) async {
+    final c = createCharacter(
+      name: 'Ruin King',
+      race: 'Tiefling',
+      className: 'Sorcerer',
+      level: 5,
+      abilities: standardArray,
+    );
+    await tester.runAsync(() => repo.create(c));
+    return c;
+  }
+
+  Future<void> settle(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  testWidgets('empty state offers to create a character', (tester) async {
+    await pumpApp(tester);
+    await settle(tester);
+    expect(find.text('No characters yet'), findsOneWidget);
+    await db.close();
+  });
+
+  testWidgets('create a character through the form', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('New character'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Mellow');
+    await tester.scrollUntilVisible(
+      find.text('Create character'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Create character'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Mellow'), findsWidgets);
+    await db.close();
+  });
+
+  testWidgets('HP pad: tap HP, type, press Damage; Undo restores', (
+    tester,
+  ) async {
+    final c = await seed(tester);
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final max = 8 + 4 * 6; // standardArray CON 13: d6+1, then 4 x (4+1)
+    expect(find.textContaining('/ ${c.hpCurrent}'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel(RegExp('Hit points')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '7');
+    await tester.pump();
+    await tester.tap(find.text('Damage'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('${c.hpCurrent - 7}'), findsWidgets);
+    expect(find.text('Undo'), findsOneWidget);
+    await tester.tap(find.text('Undo'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('${c.hpCurrent}'), findsWidgets);
+    expect(max, greaterThan(0));
+    await db.close();
+  });
+
+  testWidgets('signed entry applies directly: -3 is damage', (tester) async {
+    final c = await seed(tester);
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel(RegExp('Hit points')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '-3');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('${c.hpCurrent - 3}'), findsWidgets);
+    await db.close();
+  });
+
+  testWidgets(
+    'compact combat mode hides the portrait and shows the turn tracker',
+    (tester) async {
+      await seed(tester);
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Ruin King'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Hit dice & inspiration'), findsOneWidget);
+      await tester.tap(find.byTooltip('Compact combat mode'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Hit dice & inspiration'), findsNothing);
+      expect(find.text('Your turn'), findsOneWidget);
+      expect(find.text('Action'), findsOneWidget);
+      await db.close();
+    },
+  );
+
+  testWidgets(
+    'tapping a slot pip spends it and marks the spell turn toggle on cast',
+    (tester) async {
+      await seed(tester);
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Ruin King'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Combat'));
+      await tester.pumpAndSettle();
+      expect(find.text('Available'), findsNWidgets(3));
+      await tester.tap(find.text('Action'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Used'), findsOneWidget);
+      await tester.tap(find.text('New turn'));
+      await settle(tester);
+      await tester.pumpAndSettle();
+      expect(find.text('Available'), findsNWidgets(3));
+      await db.close();
+    },
+  );
+
+  testWidgets('tablet layout shows a navigation rail', (tester) async {
+    await seed(tester);
+    await pumpApp(tester, size: const Size(1280, 800));
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    await db.close();
+  });
+}
