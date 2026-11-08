@@ -1,4 +1,4 @@
-package dev.dndtracker.dnd_tracker
+package dev.jjs.charactertracker
 
 import io.flutter.embedding.android.FlutterActivity
 

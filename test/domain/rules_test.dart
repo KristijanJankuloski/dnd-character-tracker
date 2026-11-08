@@ -1,9 +1,9 @@
-import 'package:dnd_tracker/domain/actions.dart';
-import 'package:dnd_tracker/domain/character_factory.dart';
-import 'package:dnd_tracker/domain/models.dart';
-import 'package:dnd_tracker/domain/rules.dart';
-import 'package:dnd_tracker/domain/srd_data.dart';
-import 'package:dnd_tracker/domain/tables.dart';
+import 'package:jjs_character_tracker/domain/actions.dart';
+import 'package:jjs_character_tracker/domain/character_factory.dart';
+import 'package:jjs_character_tracker/domain/models.dart';
+import 'package:jjs_character_tracker/domain/rules.dart';
+import 'package:jjs_character_tracker/domain/srd_data.dart';
+import 'package:jjs_character_tracker/domain/tables.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Character sorcerer({int level = 5}) => createCharacter(
