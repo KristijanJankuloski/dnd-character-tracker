@@ -1,4 +1,31 @@
+import 'dart:convert';
+
 import 'models.dart';
+
+/// Parses a character backup or shared character. Throws [FormatException]
+/// when it is not one, or comes from a newer version of the app.
+Character decodeCharacterJson(String json) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
+    throw const FormatException('Not a character file');
+  }
+  if (decoded is! Map) throw const FormatException('Not a character file');
+  final map = decoded.cast<String, Object?>();
+  final version = (map['schemaVersion'] as num?)?.toInt() ?? 1;
+  if (version > 1) {
+    throw FormatException('Unsupported schema version $version');
+  }
+  if (map['id'] is! String || map['name'] is! String) {
+    throw const FormatException('Not a character file');
+  }
+  try {
+    return Character.fromJson(map);
+  } on TypeError {
+    throw const FormatException('Not a character file');
+  }
+}
 
 class LogEntry {
   const LogEntry({
@@ -48,4 +75,9 @@ abstract class CharacterRepository {
 
   Future<String> exportJson(String id);
   Future<Character> importJson(String json);
+
+  /// Saves a character received from another device. With [asCopy] it gets
+  /// a new id. Otherwise it keeps its id, and if a character with that id is
+  /// already here it is replaced (and the replacement can be undone).
+  Future<Character> receive(Character c, {bool asCopy = false});
 }

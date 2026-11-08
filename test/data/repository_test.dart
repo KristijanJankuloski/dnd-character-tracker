@@ -5,6 +5,8 @@ import 'package:jjs_character_tracker/domain/character_factory.dart';
 import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jjs_character_tracker/domain/repository.dart';
+import 'package:uuid/uuid.dart';
 
 Character make() => createCharacter(
   name: 'Test',
@@ -121,5 +123,36 @@ void main() {
     }
     final rows = await db.select(db.logEntries).get();
     expect(rows.length, lessThanOrEqualTo(500));
+  });
+
+  test('receive keeps the id, replaces undoably, or saves a copy', () async {
+    final c = make();
+    // New to this device: keeps the sender's id.
+    expect((await repo.receive(c)).id, c.id);
+    expect(await repo.watchAll().first, hasLength(1));
+
+    // Same id again: replaces, and the replacement can be undone.
+    final changed = applyDamage(c, 4).character;
+    await repo.receive(changed);
+    expect((await repo.get(c.id))!.hpCurrent, c.hpCurrent - 4);
+    expect(await repo.watchAll().first, hasLength(1));
+    expect(await repo.undoLast(c.id), contains('another device'));
+    expect((await repo.get(c.id))!.hpCurrent, c.hpCurrent);
+
+    // Or keep both.
+    final copy = await repo.receive(changed, asCopy: true);
+    expect(copy.id, isNot(c.id));
+    expect(Uuid.isValidUUID(fromString: copy.id), isTrue);
+    expect(await repo.watchAll().first, hasLength(2));
+  });
+
+  test('decodeCharacterJson rejects things that are not characters', () {
+    expect(() => decodeCharacterJson('not json'), throwsFormatException);
+    expect(() => decodeCharacterJson('{"name": "x"}'), throwsFormatException);
+    expect(
+      () =>
+          decodeCharacterJson('{"id": "a", "name": "x", "hpCurrent": "lots"}'),
+      throwsFormatException,
+    );
   });
 }

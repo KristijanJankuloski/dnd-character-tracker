@@ -100,6 +100,13 @@ class JournalScreen extends StatelessWidget {
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.qr_code_2),
+                    title: const Text('Share with another device'),
+                    subtitle: const Text('Show a QR code to scan'),
+                    onTap: () => context.push('/share/${c.id}'),
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.copy),
                     title: const Text('Copy backup JSON'),
                     onTap: () async {
