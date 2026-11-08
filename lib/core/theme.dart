@@ -53,6 +53,18 @@ ThemeData buildTheme() {
     ),
     dividerColor: Palette.goldDim,
     dialogTheme: const DialogThemeData(backgroundColor: Palette.panel),
+    // Material 3 snack bars default to inverseSurface/onInverseSurface, which
+    // this dark scheme leaves as light-on-dark-text; keep them on the palette.
+    snackBarTheme: const SnackBarThemeData(
+      backgroundColor: Palette.panelHi,
+      contentTextStyle: TextStyle(
+        color: Palette.text,
+        fontFamily: serif,
+        fontSize: 14,
+      ),
+      actionTextColor: Palette.gold,
+      closeIconColor: Palette.text,
+    ),
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: Palette.panel,
       showDragHandle: true,

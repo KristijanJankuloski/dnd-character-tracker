@@ -326,6 +326,13 @@ class FlagSet extends CharacterAction {
   act.ActionResult run(Character c) => act.setFlag(c, flag, on);
 }
 
+class MetamagicSet extends CharacterAction {
+  const MetamagicSet(this.chosen);
+  final Set<String> chosen;
+  @override
+  act.ActionResult run(Character c) => act.setMetamagic(c, chosen);
+}
+
 class NotesChanged extends CharacterAction {
   const NotesChanged(this.notes);
   final String notes;

@@ -859,6 +859,7 @@ class Character {
     this.variantEncumbrance = false,
     this.baseSpeed = 30,
     this.weaponProfs = const {},
+    this.metamagic = const {},
   });
 
   final String id;
@@ -912,6 +913,9 @@ class Character {
   /// `simple`, `martial` and named weapons (lowercase).
   final Set<String> weaponProfs;
 
+  /// Chosen Metamagic option names (Sorcerer).
+  final Set<String> metamagic;
+
   int get level => classes.fold(0, (s, c) => s + c.level);
   ClassLevel get primaryClass => classes.first;
   String get classLine => classes
@@ -959,6 +963,7 @@ class Character {
     bool? variantEncumbrance,
     int? baseSpeed,
     Set<String>? weaponProfs,
+    Set<String>? metamagic,
   }) => Character(
     id: id,
     name: name ?? this.name,
@@ -1002,6 +1007,7 @@ class Character {
     variantEncumbrance: variantEncumbrance ?? this.variantEncumbrance,
     baseSpeed: baseSpeed ?? this.baseSpeed,
     weaponProfs: weaponProfs ?? this.weaponProfs,
+    metamagic: metamagic ?? this.metamagic,
   );
 
   static const Object _unset = Object();
@@ -1046,6 +1052,7 @@ class Character {
     'variantEncumbrance': variantEncumbrance,
     'baseSpeed': baseSpeed,
     'weaponProfs': weaponProfs.toList(),
+    'metamagic': metamagic.toList(),
   };
 
   factory Character.fromJson(Map<String, Object?> j) {
@@ -1119,6 +1126,7 @@ class Character {
       weaponProfs: ((j['weaponProfs'] as List?) ?? const [])
           .cast<String>()
           .toSet(),
+      metamagic: ((j['metamagic'] as List?) ?? const []).cast<String>().toSet(),
     );
   }
 }

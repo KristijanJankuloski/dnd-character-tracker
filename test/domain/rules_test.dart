@@ -380,6 +380,41 @@ void main() {
     });
   });
 
+  group('metamagic', () {
+    test('options known scale with sorcerer level', () {
+      expect(metamagicKnownFor(2), 0);
+      expect(metamagicKnownFor(3), 2);
+      expect(metamagicKnownFor(10), 3);
+      expect(metamagicKnownFor(17), 4);
+    });
+
+    test('a character created at level 4 can choose metamagic', () {
+      final c = sorcerer(level: 4);
+      expect(c.features.any((f) => f.name == 'Metamagic'), isTrue);
+      final r = setMetamagic(c, {'Quickened Spell', 'Twinned Spell'});
+      expect(r.blocked, isFalse);
+      expect(r.warnings, isEmpty);
+      expect(r.character.metamagic, {'Quickened Spell', 'Twinned Spell'});
+    });
+
+    test('choosing more than allowed warns but keeps the choice', () {
+      final r = setMetamagic(sorcerer(level: 4), {
+        'Quickened Spell',
+        'Twinned Spell',
+        'Subtle Spell',
+      });
+      expect(r.character.metamagic, hasLength(3));
+      expect(r.warnings.single, contains('knows 2'));
+    });
+
+    test('unknown names are dropped and choices survive JSON', () {
+      final r = setMetamagic(sorcerer(), {'Subtle Spell', 'Bogus'});
+      expect(r.character.metamagic, {'Subtle Spell'});
+      final back = Character.fromJson(r.character.toJson());
+      expect(back.metamagic, {'Subtle Spell'});
+    });
+  });
+
   group('resources and rests', () {
     test('sorcerer gets sorcery points equal to level', () {
       final r = sorcerer().resources.firstWhere(

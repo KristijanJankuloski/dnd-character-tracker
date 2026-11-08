@@ -294,9 +294,13 @@ class _ItemTile extends StatelessWidget {
     ];
     return Opacity(
       opacity: used ? 0.45 : 1,
+      // The equipment list sits on a parchment panel, so the tile needs dark
+      // ink instead of the theme's light text.
       child: ListTile(
         contentPadding: EdgeInsets.zero,
         dense: true,
+        textColor: Palette.ink,
+        iconColor: Palette.ink,
         title: Text(
           '${i.name}${i.quantity != 1 ? ' ×${i.quantity}' : ''}',
           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -382,6 +386,7 @@ class _ItemTile extends StatelessWidget {
             if (i.type == ItemType.ammo ||
                 i.type == ItemType.gear && i.quantity > 1) ...[
               IconButton(
+                color: Palette.ink,
                 icon: const Icon(Icons.remove_circle_outline),
                 tooltip: 'One less',
                 onPressed: () => bloc.add(ItemQuantityChanged(i.id, -1)),
@@ -389,6 +394,7 @@ class _ItemTile extends StatelessWidget {
             ],
             if (i.requiresAttunement)
               IconButton(
+                color: Palette.ink,
                 tooltip: i.attuned ? 'End attunement' : 'Attune',
                 icon: Icon(i.attuned ? Icons.link : Icons.link_off),
                 onPressed: () async {
