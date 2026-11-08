@@ -36,7 +36,7 @@ class LogEntries extends Table {
 @DriftDatabase(tables: [Characters, LogEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'dnd_tracker'));
+    : super(executor ?? driftDatabase(name: 'jjs_character_tracker'));
 
   @override
   int get schemaVersion => 1;
