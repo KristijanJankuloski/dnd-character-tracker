@@ -1,7 +1,7 @@
 /// Builds a new character from a class template.
 library;
 
-import 'dart:math';
+import 'package:uuid/uuid.dart';
 
 import 'class_templates.dart';
 import 'models.dart';
@@ -11,20 +11,6 @@ import 'srd_data.dart';
 int _idCounter = 0;
 String newId([String prefix = 'id']) =>
     '$prefix-${DateTime.now().microsecondsSinceEpoch}-${_idCounter++}';
-
-final Random _secureRandom = Random.secure();
-
-/// Random (version 4) UUID, e.g. `3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d`.
-/// Assigned once when a character is created and used as its stable
-/// identity (e.g. for syncing between devices).
-String newUuid() {
-  final b = List<int>.generate(16, (_) => _secureRandom.nextInt(256));
-  b[6] = (b[6] & 0x0f) | 0x40;
-  b[8] = (b[8] & 0x3f) | 0x80;
-  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
-  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
-      '${h.substring(16, 20)}-${h.substring(20)}';
-}
 
 Character createCharacter({
   required String name,
@@ -41,7 +27,7 @@ Character createCharacter({
 }) {
   final t = classTemplates[className]!;
   var c = Character(
-    id: newUuid(),
+    id: const Uuid().v4(),
     name: name.trim().isEmpty ? 'Unnamed' : name.trim(),
     race: race,
     background: background,

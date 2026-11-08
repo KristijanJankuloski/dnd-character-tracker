@@ -1,13 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
+import 'package:jjs_character_tracker/domain/models.dart';
+import 'package:uuid/uuid.dart';
 
 void main() {
-  test('newUuid produces unique v4 UUIDs', () {
-    final re = RegExp(
-      r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  test('new characters get unique UUID v4 ids', () {
+    Character make() => createCharacter(
+      name: 'A',
+      race: 'Human',
+      className: 'Fighter',
+      level: 1,
+      abilities: standardArray,
     );
-    final ids = {for (var i = 0; i < 500; i++) newUuid()};
-    expect(ids.length, 500);
-    expect(ids.every(re.hasMatch), isTrue);
+    final a = make(), b = make();
+    expect(Uuid.isValidUUID(fromString: a.id), isTrue);
+    expect(a.id[14], '4');
+    expect(a.id, isNot(b.id));
   });
 }
