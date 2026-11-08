@@ -1,10 +1,10 @@
 import 'package:bloc_test/bloc_test.dart';
-import 'package:dnd_tracker/data/database.dart';
-import 'package:dnd_tracker/data/drift_repository.dart';
-import 'package:dnd_tracker/domain/character_factory.dart';
-import 'package:dnd_tracker/domain/models.dart';
-import 'package:dnd_tracker/features/character/character_bloc.dart';
-import 'package:dnd_tracker/features/character/character_event.dart';
+import 'package:jjs_character_tracker/data/database.dart';
+import 'package:jjs_character_tracker/data/drift_repository.dart';
+import 'package:jjs_character_tracker/domain/character_factory.dart';
+import 'package:jjs_character_tracker/domain/models.dart';
+import 'package:jjs_character_tracker/features/character/character_bloc.dart';
+import 'package:jjs_character_tracker/features/character/character_event.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
