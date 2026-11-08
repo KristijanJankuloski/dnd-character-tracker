@@ -1,4 +1,4 @@
-# D&D Character Tracker: Specification
+# JJs Character Tracker: Specification
 
 Status: **draft, awaiting Mellow's approval.** Nothing gets built until this is approved.
 

@@ -36,7 +36,7 @@ class _DnDAppState extends State<DnDApp> {
     return RepositoryProvider<CharacterRepository>.value(
       value: widget.repository,
       child: MaterialApp.router(
-        title: 'D&D Character Tracker',
+        title: 'JJs Character Tracker',
         theme: buildTheme(),
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
