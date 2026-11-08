@@ -36,13 +36,24 @@ Everything is local to the device (Drift/SQLite). There is no dice roller, no ac
 - Mage Armor and Draconic Resilience are switches in Journal settings; the highest AC formula wins and the others are listed in the breakdown.
 - Warn, never block, with one exception: a fourth attunement is refused.
 
+## Added after review
+
+- Level up and multiclass (Journal > Level up). Resources scale with their own class level.
+- Base speed is chosen at creation. Effects can target one save, one skill, or add a note (resistance, sense). Spell DC, spell attack and saves honour `set` effects.
+- Weapon proficiency comes from each class's simple/martial/named lists, with a per-attack override (long-press a weapon).
+- Extra Attack ("Attack 1 of 2") and an Off-hand button for Two-Weapon Fighting.
+- Known-spell and cantrip limits from the class tables (warn, never block). Ritual casting only for classes that can. Prepared casters add leveled spells unprepared.
+- Death is never decided automatically by massive damage: there is a "Mark as dead" button and a Dismiss button.
+- Casting a second concentration spell asks first. Incapacitating conditions end concentration.
+
 ## Left out of the MVP
 
-- Level-up flow, ASI/feat choices, and Warlock Eldritch Invocations.
-- Resource and item editors beyond a custom item with one effect and a custom spell. "+ New resource" is not in the UI yet.
+- ASI and feat choices (a level-up warning reminds you to edit scores), Warlock Eldritch Invocations, and automatic multiclass proficiencies.
+- The Wizard spellbook is the spell list itself: every spell on a Wizard's list is a spellbook spell, and preparing is a separate tick.
+- Resource and item editors beyond a custom item with one effect and a custom spell. Custom items can't set armor base AC or weapon dice yet. "+ New resource" is not in the UI.
 - Timed modifiers (the data model and rest clearing exist; there is no UI to add one).
 - Portrait pictures (initials only).
-- Per-attack equip hands warnings beyond the basic hand count; ammunition recovery button.
+- Ammunition recovery button.
 - SRD import from a dataset; a small bundled list stands in.
-- Database migration tests (there is only schema version 1).
+- Hybrid storage and migrations: characters are one JSON column, SRD data is Dart constants, and there is no Drift migration test yet (only schema version 1). Both should be done before the schema changes.
 - iOS has not been run.

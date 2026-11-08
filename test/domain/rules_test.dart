@@ -323,12 +323,18 @@ void main() {
       expect(castSpell(c, fireball, slotLevel: 3).blocked, isTrue);
     });
 
-    test('second concentration spell warns and replaces', () {
-      var c = castSpell(sorcerer(), haste, slotLevel: 3).character;
+    test('second concentration spell needs confirmation, then replaces', () {
+      final c = castSpell(sorcerer(), haste, slotLevel: 3).character;
+      final holdPerson = srdSpells.firstWhere((s) => s.name == 'Hold Person');
+      final refused = castSpell(c, holdPerson, slotLevel: 2);
+      expect(refused.blocked, isTrue);
+      expect(refused.character.concentration, 'Haste');
+      expect(refused.character.slotsUsed[2], isNull);
       final r = castSpell(
         c,
-        srdSpells.firstWhere((s) => s.name == 'Hold Person'),
+        holdPerson,
         slotLevel: 2,
+        replaceConcentration: true,
       );
       expect(r.character.concentration, 'Hold Person');
       expect(
@@ -348,10 +354,21 @@ void main() {
       },
     );
 
-    test('ritual casting spends no slot', () {
+    test('ritual casting spends no slot, and only for ritual casters', () {
       final detect = srdSpells.firstWhere((s) => s.name == 'Detect Magic');
-      final r = castSpell(sorcerer(), detect, ritual: true);
+      expect(castSpell(sorcerer(), detect, ritual: true).blocked, isTrue);
+      final wizard = createCharacter(
+        name: 'W',
+        race: 'Elf',
+        className: 'Wizard',
+        level: 3,
+        abilities: standardArray,
+      );
+      final r = castSpell(wizard, detect, ritual: true);
+      expect(r.blocked, isFalse);
       expect(r.character.slotsUsed, isEmpty);
+      final withFlag = sorcerer().copyWith(flags: {'ritualCasting'});
+      expect(castSpell(withFlag, detect, ritual: true).blocked, isFalse);
     });
 
     test('cantrip damage scales', () {

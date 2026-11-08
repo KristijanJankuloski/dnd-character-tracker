@@ -18,6 +18,7 @@ class ClassTemplate {
     this.skillChoices = 2,
     this.skillList = const [],
     this.ritualCaster = false,
+    this.weaponProfs = const {},
   });
 
   final String name;
@@ -32,6 +33,9 @@ class ClassTemplate {
   final int skillChoices;
   final List<Skill> skillList;
   final bool ritualCaster;
+
+  /// `simple`, `martial` and named weapons, lowercase.
+  final Set<String> weaponProfs;
 }
 
 class ResourceTemplate {
@@ -56,7 +60,7 @@ class ResourceTemplate {
   final bool toggleable;
   final String note;
 
-  Resource build(int level, int Function(Resource) maxOf) {
+  Resource build(String className, int Function(Resource) maxOf) {
     final r = Resource(
       id: id,
       name: name,
@@ -68,6 +72,7 @@ class ResourceTemplate {
       pool: pool,
       toggleable: toggleable,
       note: note,
+      className: className,
     );
     return r.copyWith(current: maxOf(r));
   }
@@ -83,6 +88,7 @@ final Map<String, ClassTemplate> classTemplates = {
 const List<ClassTemplate> _templates = [
   ClassTemplate(
     name: 'Barbarian',
+    weaponProfs: {'simple', 'martial'},
     hitDie: 12,
     saves: {Ability.str, Ability.con},
     armor: {'light', 'medium', 'shields'},
@@ -131,6 +137,13 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Bard',
+    weaponProfs: {
+      'simple',
+      'hand crossbow',
+      'longsword',
+      'rapier',
+      'shortsword',
+    },
     hitDie: 8,
     saves: {Ability.dex, Ability.cha},
     caster: CasterType.full,
@@ -154,6 +167,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Cleric',
+    weaponProfs: {'simple'},
     hitDie: 8,
     saves: {Ability.wis, Ability.cha},
     caster: CasterType.full,
@@ -201,6 +215,18 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Druid',
+    weaponProfs: {
+      'club',
+      'dagger',
+      'dart',
+      'javelin',
+      'mace',
+      'quarterstaff',
+      'scimitar',
+      'sickle',
+      'sling',
+      'spear',
+    },
     hitDie: 8,
     saves: {Ability.int_, Ability.wis},
     caster: CasterType.full,
@@ -231,6 +257,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Fighter',
+    weaponProfs: {'simple', 'martial'},
     hitDie: 10,
     saves: {Ability.str, Ability.con},
     armor: {'light', 'medium', 'heavy', 'shields'},
@@ -313,6 +340,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Monk',
+    weaponProfs: {'simple', 'shortsword'},
     hitDie: 8,
     saves: {Ability.str, Ability.dex},
     skillList: [
@@ -335,6 +363,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Paladin',
+    weaponProfs: {'simple', 'martial'},
     hitDie: 10,
     saves: {Ability.wis, Ability.cha},
     caster: CasterType.half,
@@ -369,6 +398,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Ranger',
+    weaponProfs: {'simple', 'martial'},
     hitDie: 10,
     saves: {Ability.str, Ability.dex},
     caster: CasterType.half,
@@ -396,6 +426,13 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Rogue',
+    weaponProfs: {
+      'simple',
+      'hand crossbow',
+      'longsword',
+      'rapier',
+      'shortsword',
+    },
     hitDie: 8,
     saves: {Ability.dex, Ability.int_},
     armor: {'light'},
@@ -422,6 +459,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Sorcerer',
+    weaponProfs: {'dagger', 'dart', 'sling', 'quarterstaff', 'light crossbow'},
     hitDie: 6,
     saves: {Ability.con, Ability.cha},
     caster: CasterType.full,
@@ -454,6 +492,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Warlock',
+    weaponProfs: {'simple'},
     hitDie: 8,
     saves: {Ability.wis, Ability.cha},
     caster: CasterType.pact,
@@ -472,6 +511,7 @@ const List<ClassTemplate> _templates = [
   ),
   ClassTemplate(
     name: 'Wizard',
+    weaponProfs: {'dagger', 'dart', 'sling', 'quarterstaff', 'light crossbow'},
     hitDie: 6,
     saves: {Ability.int_, Ability.wis},
     caster: CasterType.full,

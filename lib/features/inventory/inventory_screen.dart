@@ -280,14 +280,17 @@ class _ItemTile extends StatelessWidget {
     final used = i.quantity <= 0;
     final tags = [
       i.type.name,
-      if (i.armor != null) 'AC ${i.armor!.baseAc + i.magicBonus}',
-      if (i.type == ItemType.shield) '+${2 + i.magicBonus} AC',
+      if (i.armor != null) 'AC ${i.armor!.baseAc + i.magicBonusActive}',
+      if (i.type == ItemType.shield) '+${2 + i.magicBonusActive} AC',
       if (i.weight > 0)
         '${(i.weight * i.quantity).toStringAsFixed(i.weight * i.quantity == (i.weight * i.quantity).roundToDouble() ? 0 : 1)} lb',
       if (i.rarity.isNotEmpty) i.rarity,
       if (i.requiresAttunement) i.attuned ? 'attuned' : 'needs attunement',
       for (final e in i.effects)
-        '${e.target.label} ${e.mode == EffectMode.set ? '=' : (e.value >= 0 ? '+' : '')}${e.value}',
+        if (e.target == StatTarget.note)
+          e.note
+        else
+          '${e.target.label}${e.subject.isEmpty ? '' : ' (${e.subject})'} ${e.mode == EffectMode.set ? '=' : (e.value >= 0 ? '+' : '')}${e.value}',
     ];
     return Opacity(
       opacity: used ? 0.45 : 1,
@@ -312,7 +315,43 @@ class _ItemTile extends StatelessWidget {
           ].join('\n'),
         ),
         onLongPress: () async {
-          if (await confirm(context, 'Delete ${i.name}?', yes: 'Delete') &&
+          final choice = await showModalBottomSheet<String>(
+            context: context,
+            builder: (ctx) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: Text(
+                      i.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  if (i.type == ItemType.weapon)
+                    ListTile(
+                      leading: const Icon(Icons.school),
+                      title: Text(
+                        'Proficiency: ${i.proficientOverride == null ? 'automatic' : (i.proficientOverride! ? 'proficient' : 'not proficient')}',
+                      ),
+                      subtitle: const Text(
+                        'Tap to cycle automatic / proficient / not',
+                      ),
+                      onTap: () => Navigator.pop(ctx, 'prof'),
+                    ),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline),
+                    title: const Text('Delete'),
+                    onTap: () => Navigator.pop(ctx, 'delete'),
+                  ),
+                ],
+              ),
+            ),
+          );
+          if (!context.mounted) return;
+          if (choice == 'prof') {
+            bloc.add(WeaponProficiencyCycled(i.id));
+          } else if (choice == 'delete' &&
+              await confirm(context, 'Delete ${i.name}?', yes: 'Delete') &&
               context.mounted) {
             bloc.add(ItemRemoved(i.id));
           }
@@ -446,6 +485,8 @@ class _ItemPickerState extends State<_ItemPicker> {
     StatTarget? target;
     var effectValue = 1;
     var setMode = false;
+    var subject = '';
+    final noteText = TextEditingController();
     return showDialog<Item>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -478,6 +519,16 @@ class _ItemPickerState extends State<_ItemPicker> {
                 ),
                 const SizedBox(height: 8),
                 TextField(
+                  controller: bonus,
+                  decoration: const InputDecoration(
+                    labelText: 'Magic bonus (armor, shield, weapon)',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
                   controller: desc,
                   decoration: const InputDecoration(labelText: 'Description'),
                   maxLines: 2,
@@ -500,7 +551,36 @@ class _ItemPickerState extends State<_ItemPicker> {
                   ],
                   onChanged: (v) => set(() => target = v),
                 ),
-                if (target != null)
+                if (target == StatTarget.save)
+                  DropdownButtonFormField<String>(
+                    initialValue: subject.isEmpty ? Ability.str.name : subject,
+                    decoration: const InputDecoration(labelText: 'Which save'),
+                    items: [
+                      for (final a in Ability.values)
+                        DropdownMenuItem(value: a.name, child: Text(a.label)),
+                    ],
+                    onChanged: (v) => set(() => subject = v ?? ''),
+                  ),
+                if (target == StatTarget.skill)
+                  DropdownButtonFormField<String>(
+                    initialValue: subject.isEmpty
+                        ? Skill.acrobatics.name
+                        : subject,
+                    decoration: const InputDecoration(labelText: 'Which skill'),
+                    items: [
+                      for (final k in Skill.values)
+                        DropdownMenuItem(value: k.name, child: Text(k.label)),
+                    ],
+                    onChanged: (v) => set(() => subject = v ?? ''),
+                  ),
+                if (target == StatTarget.note)
+                  TextField(
+                    controller: noteText,
+                    decoration: const InputDecoration(
+                      labelText: 'Note, e.g. Resistance to fire',
+                    ),
+                  ),
+                if (target != null && target != StatTarget.note)
                   Row(
                     children: [
                       Expanded(
@@ -551,7 +631,19 @@ class _ItemPickerState extends State<_ItemPicker> {
                             Effect(
                               target: target!,
                               mode: setMode ? EffectMode.set : EffectMode.add,
-                              value: effectValue,
+                              value: target == StatTarget.note
+                                  ? 0
+                                  : effectValue,
+                              note: noteText.text.trim(),
+                              subject: switch (target!) {
+                                StatTarget.save =>
+                                  subject.isEmpty ? Ability.str.name : subject,
+                                StatTarget.skill =>
+                                  subject.isEmpty
+                                      ? Skill.acrobatics.name
+                                      : subject,
+                                _ => '',
+                              },
                             ),
                           ],
                   ),

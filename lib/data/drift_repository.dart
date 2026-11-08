@@ -163,7 +163,15 @@ class DriftCharacterRepository implements CharacterRepository {
             .getSingleOrNull();
     if (entry == null || entry.before == null) return null;
     final current = await get(characterId);
-    final restored = _decode(entry.before!);
+    // Notes and view settings are saved without a log entry, so keep what is
+    // current instead of rolling them back with the snapshot.
+    final snapshot = _decode(entry.before!);
+    final restored = current == null
+        ? snapshot
+        : snapshot.copyWith(
+            notes: current.notes,
+            compactMode: current.compactMode,
+          );
     await _save(restored);
     await (_db.update(_db.logEntries)..where((t) => t.id.equals(entry.id)))
         .write(const LogEntriesCompanion(undoable: Value(false)));

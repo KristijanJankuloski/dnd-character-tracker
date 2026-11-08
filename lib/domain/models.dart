@@ -90,6 +90,9 @@ enum StatTarget {
   damageBonus('Damage bonus'),
   maxHp('Max HP'),
   saves('All saves'),
+  save('One saving throw'),
+  skill('One skill'),
+  note('Note (resistance, sense)'),
   str('STR'),
   dex('DEX'),
   con('CON'),
@@ -127,6 +130,7 @@ class Effect {
     this.source = '',
     this.active = true,
     this.note = '',
+    this.subject = '',
   });
 
   final StatTarget target;
@@ -136,6 +140,9 @@ class Effect {
   final bool active;
   final String note;
 
+  /// For `save` and `skill` targets: the ability or skill name.
+  final String subject;
+
   Effect copyWith({bool? active, String? source}) => Effect(
     target: target,
     mode: mode,
@@ -143,6 +150,17 @@ class Effect {
     source: source ?? this.source,
     active: active ?? this.active,
     note: note,
+    subject: subject,
+  );
+
+  Effect retarget(StatTarget t) => Effect(
+    target: t,
+    mode: mode,
+    value: value,
+    source: source,
+    active: active,
+    note: note,
+    subject: subject,
   );
 
   Map<String, Object?> toJson() => {
@@ -152,6 +170,7 @@ class Effect {
     'source': source,
     'active': active,
     'note': note,
+    'subject': subject,
   };
 
   factory Effect.fromJson(Map<String, Object?> j) => Effect(
@@ -161,6 +180,7 @@ class Effect {
     source: (j['source'] as String?) ?? '',
     active: (j['active'] as bool?) ?? true,
     note: (j['note'] as String?) ?? '',
+    subject: (j['subject'] as String?) ?? '',
   );
 }
 
@@ -268,6 +288,7 @@ class Resource {
     this.toggleable = false,
     this.active = false,
     this.note = '',
+    this.className = '',
   });
 
   final String id;
@@ -288,6 +309,9 @@ class Resource {
   final bool active;
   final String note;
 
+  /// The class this resource scales with. Empty means total character level.
+  final String className;
+
   Resource copyWith({
     int? current,
     bool? active,
@@ -305,6 +329,7 @@ class Resource {
     toggleable: toggleable,
     active: active ?? this.active,
     note: note,
+    className: className,
   );
 
   Map<String, Object?> toJson() => {
@@ -319,6 +344,7 @@ class Resource {
     'toggleable': toggleable,
     'active': active,
     'note': note,
+    'className': className,
   };
 
   factory Resource.fromJson(Map<String, Object?> j) => Resource(
@@ -335,6 +361,7 @@ class Resource {
     toggleable: (j['toggleable'] as bool?) ?? false,
     active: (j['active'] as bool?) ?? false,
     note: (j['note'] as String?) ?? '',
+    className: (j['className'] as String?) ?? '',
   );
 }
 
@@ -541,6 +568,7 @@ class Item {
     this.effects = const [],
     this.healAmount,
     this.source = 'custom',
+    this.proficientOverride,
   });
 
   final String id;
@@ -566,6 +594,12 @@ class Item {
   final int? healAmount;
   final String source;
 
+  /// Weapons: overrides automatic proficiency. Null means automatic.
+  final bool? proficientOverride;
+
+  /// Magic bonus counts only while the item is attuned, if it requires that.
+  int get magicBonusActive => (!requiresAttunement || attuned) ? magicBonus : 0;
+
   bool get equippable =>
       type == ItemType.armor ||
       type == ItemType.shield ||
@@ -576,7 +610,12 @@ class Item {
   /// Magic effects only apply while equipped and, when required, attuned.
   bool get effectsActive => equipped && (!requiresAttunement || attuned);
 
-  Item copyWith({int? quantity, bool? equipped, bool? attuned}) => Item(
+  Item copyWith({
+    int? quantity,
+    bool? equipped,
+    bool? attuned,
+    Object? proficientOverride = _unsetItem,
+  }) => Item(
     id: id,
     name: name,
     type: type,
@@ -595,7 +634,12 @@ class Item {
     effects: effects,
     healAmount: healAmount,
     source: source,
+    proficientOverride: identical(proficientOverride, _unsetItem)
+        ? this.proficientOverride
+        : proficientOverride as bool?,
   );
+
+  static const Object _unsetItem = Object();
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -616,6 +660,7 @@ class Item {
     'effects': effects.map((e) => e.toJson()).toList(),
     'healAmount': healAmount,
     'source': source,
+    'proficientOverride': proficientOverride,
   };
 
   factory Item.fromJson(Map<String, Object?> j) => Item(
@@ -643,6 +688,7 @@ class Item {
         .toList(),
     healAmount: (j['healAmount'] as num?)?.toInt(),
     source: (j['source'] as String?) ?? 'custom',
+    proficientOverride: j['proficientOverride'] as bool?,
   );
 }
 
@@ -811,7 +857,8 @@ class Character {
     this.turn = const TurnState(),
     this.compactMode = false,
     this.variantEncumbrance = false,
-    this.unarmedProficient = true,
+    this.baseSpeed = 30,
+    this.weaponProfs = const {},
   });
 
   final String id;
@@ -860,7 +907,10 @@ class Character {
   final TurnState turn;
   final bool compactMode;
   final bool variantEncumbrance;
-  final bool unarmedProficient;
+  final int baseSpeed;
+
+  /// `simple`, `martial` and named weapons (lowercase).
+  final Set<String> weaponProfs;
 
   int get level => classes.fold(0, (s, c) => s + c.level);
   ClassLevel get primaryClass => classes.first;
@@ -907,7 +957,8 @@ class Character {
     TurnState? turn,
     bool? compactMode,
     bool? variantEncumbrance,
-    bool? unarmedProficient,
+    int? baseSpeed,
+    Set<String>? weaponProfs,
   }) => Character(
     id: id,
     name: name ?? this.name,
@@ -949,7 +1000,8 @@ class Character {
     turn: turn ?? this.turn,
     compactMode: compactMode ?? this.compactMode,
     variantEncumbrance: variantEncumbrance ?? this.variantEncumbrance,
-    unarmedProficient: unarmedProficient ?? this.unarmedProficient,
+    baseSpeed: baseSpeed ?? this.baseSpeed,
+    weaponProfs: weaponProfs ?? this.weaponProfs,
   );
 
   static const Object _unset = Object();
@@ -992,7 +1044,8 @@ class Character {
     'turn': turn.toJson(),
     'compactMode': compactMode,
     'variantEncumbrance': variantEncumbrance,
-    'unarmedProficient': unarmedProficient,
+    'baseSpeed': baseSpeed,
+    'weaponProfs': weaponProfs.toList(),
   };
 
   factory Character.fromJson(Map<String, Object?> j) {
@@ -1062,7 +1115,10 @@ class Character {
           : TurnState.fromJson((j['turn'] as Map).cast()),
       compactMode: (j['compactMode'] as bool?) ?? false,
       variantEncumbrance: (j['variantEncumbrance'] as bool?) ?? false,
-      unarmedProficient: (j['unarmedProficient'] as bool?) ?? true,
+      baseSpeed: (j['baseSpeed'] as num?)?.toInt() ?? 30,
+      weaponProfs: ((j['weaponProfs'] as List?) ?? const [])
+          .cast<String>()
+          .toSet(),
     );
   }
 }

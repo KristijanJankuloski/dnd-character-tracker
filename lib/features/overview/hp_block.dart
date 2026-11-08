@@ -283,29 +283,54 @@ class DeathSavesPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              OutlinedButton(
-                onPressed: () => bloc.add(const DeathSaveRecorded('success')),
-                child: const Text('Success'),
-              ),
-              OutlinedButton(
-                onPressed: () => bloc.add(const DeathSaveRecorded('failure')),
-                child: const Text('Failure'),
-              ),
-              OutlinedButton(
-                onPressed: () => bloc.add(const DeathSaveRecorded('nat20')),
-                child: const Text('Natural 20'),
-              ),
-              OutlinedButton(
-                onPressed: () => bloc.add(const DeathSaveRecorded('nat1')),
-                child: const Text('Natural 1'),
-              ),
-            ],
-          ),
+          if (c.dead)
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Marked dead. Dismiss this if it was a mistake.'),
+                ),
+                OutlinedButton(
+                  onPressed: () => bloc.add(const DeathDismissed()),
+                  child: const Text('Dismiss'),
+                ),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: () => bloc.add(const DeathSaveRecorded('success')),
+                  child: const Text('Success'),
+                ),
+                OutlinedButton(
+                  onPressed: () => bloc.add(const DeathSaveRecorded('failure')),
+                  child: const Text('Failure'),
+                ),
+                OutlinedButton(
+                  onPressed: () => bloc.add(const DeathSaveRecorded('nat20')),
+                  child: const Text('Natural 20'),
+                ),
+                OutlinedButton(
+                  onPressed: () => bloc.add(const DeathSaveRecorded('nat1')),
+                  child: const Text('Natural 1'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (await confirm(
+                      context,
+                      'Mark ${c.name} as dead? Use this for instant death from massive damage.',
+                      yes: 'Mark dead',
+                    )) {
+                      bloc.add(const DeathMarked());
+                    }
+                  },
+                  child: const Text('Mark as dead'),
+                ),
+              ],
+            ),
         ],
       ),
     );

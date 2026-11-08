@@ -57,7 +57,7 @@ class OverviewScreen extends StatelessWidget {
       const SizedBox(height: 12),
       _CoreNumbers(state: s),
       const SizedBox(height: 12),
-      if (c.hpCurrent == 0) ...[
+      if (c.hpCurrent == 0 || c.dead) ...[
         DeathSavesPanel(character: c),
         const SizedBox(height: 12),
       ],
@@ -133,6 +133,20 @@ class OverviewScreen extends StatelessWidget {
     return [
       _PassiveStrip(state: s),
       const SizedBox(height: 12),
+      if (s.stats.traits.isNotEmpty) ...[
+        Panel(
+          title: 'Senses & resistances',
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final t in s.stats.traits)
+                Chip(label: Text('${t.$2} (${t.$1})')),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
       AbilitiesPanel(state: s),
       const SizedBox(height: 12),
       SavesPanel(state: s),

@@ -183,9 +183,7 @@ class TurnTracker extends StatelessWidget {
                   minimumSize: const Size(44, 44),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
-                onPressed: left >= 5
-                    ? () => bloc.add(const MovementUsed(5))
-                    : null,
+                onPressed: () => bloc.add(const MovementUsed(5)),
                 child: const Text('-5'),
               ),
               const SizedBox(width: 6),
@@ -194,9 +192,7 @@ class TurnTracker extends StatelessWidget {
                   minimumSize: const Size(44, 44),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                 ),
-                onPressed: left >= 10
-                    ? () => bloc.add(const MovementUsed(10))
-                    : null,
+                onPressed: () => bloc.add(const MovementUsed(10)),
                 child: const Text('-10'),
               ),
             ],
@@ -220,6 +216,18 @@ class TurnTracker extends StatelessWidget {
 class _Attacks extends StatelessWidget {
   const _Attacks({required this.state});
   final CharacterLoaded state;
+
+  /// Two-Weapon Fighting: offered for Light weapons when two are equipped.
+  bool _canOffHand(AttackInfo a) {
+    if (a.itemId == null) return false;
+    final lights = state.character.items.where(
+      (i) => i.equipped && i.weapon?.light == true && !i.weapon!.ranged,
+    );
+    final item = state.character.items
+        .where((i) => i.id == a.itemId)
+        .firstOrNull;
+    return lights.length >= 2 && item?.weapon?.light == true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,11 +281,10 @@ class _Attacks extends StatelessWidget {
                           ].join(' · '),
                           style: const TextStyle(fontSize: 12),
                         ),
-                        if (a.itemId == null &&
-                            a.spellId == null &&
-                            t.attacksMade > 0)
+                        if (a.spellId == null &&
+                            state.stats.attacksPerAction > 1)
                           Text(
-                            'Attack ${t.attacksMade + 1}',
+                            'Attack ${t.attacksMade + 1} of ${state.stats.attacksPerAction}',
                             style: const TextStyle(fontSize: 12),
                           ),
                       ],
@@ -300,10 +307,23 @@ class _Attacks extends StatelessWidget {
                           );
                           bloc.add(SpellCast(spell));
                         } else {
-                          bloc.add(AttackUsed(a));
+                          bloc.add(
+                            AttackUsed(
+                              a,
+                              attacksPerAction: state.stats.attacksPerAction,
+                            ),
+                          );
                         }
                       },
                       child: const Text('Use'),
+                    ),
+                  if (_canOffHand(a))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: OutlinedButton(
+                        onPressed: () => bloc.add(AttackUsed(a, offHand: true)),
+                        child: const Text('Off-hand'),
+                      ),
                     ),
                 ],
               ),

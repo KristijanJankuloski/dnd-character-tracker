@@ -39,6 +39,17 @@ void main() {
     return c;
   }
 
+  /// Polls (real time, so Drift streams can emit) until [finder] matches.
+  Future<void> waitFor(WidgetTester tester, Finder finder) async {
+    for (var i = 0; i < 100; i++) {
+      if (finder.evaluate().isNotEmpty) return;
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+  }
+
   Future<void> settle(WidgetTester tester) async {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
@@ -88,11 +99,13 @@ void main() {
     await tester.tap(find.text('Damage'));
     await settle(tester);
     await tester.pumpAndSettle();
+    await waitFor(tester, find.text('Undo'));
     expect(find.text('${c.hpCurrent - 7}'), findsWidgets);
     expect(find.text('Undo'), findsOneWidget);
     await tester.tap(find.text('Undo'));
     await settle(tester);
     await tester.pumpAndSettle();
+    await waitFor(tester, find.text('${c.hpCurrent}'));
     expect(find.text('${c.hpCurrent}'), findsWidgets);
     expect(max, greaterThan(0));
     await db.close();
@@ -111,6 +124,7 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await settle(tester);
     await tester.pumpAndSettle();
+    await waitFor(tester, find.text('${c.hpCurrent - 3}'));
     expect(find.text('${c.hpCurrent - 3}'), findsWidgets);
     await db.close();
   });

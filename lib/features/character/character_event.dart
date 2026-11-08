@@ -85,14 +85,24 @@ class SpellCast extends CharacterAction {
     this.slotLevel,
     this.ritual = false,
     this.pact = false,
+    this.replaceConcentration = false,
   });
   final Spell spell;
   final int? slotLevel;
   final bool ritual;
   final bool pact;
+
+  /// The player agreed to end the current concentration.
+  final bool replaceConcentration;
   @override
-  act.ActionResult run(Character c) =>
-      act.castSpell(c, spell, slotLevel: slotLevel, ritual: ritual, pact: pact);
+  act.ActionResult run(Character c) => act.castSpell(
+    c,
+    spell,
+    slotLevel: slotLevel,
+    ritual: ritual,
+    pact: pact,
+    replaceConcentration: replaceConcentration,
+  );
 }
 
 class ConcentrationEnded extends CharacterAction {
@@ -178,12 +188,23 @@ class MovementUsed extends CharacterAction {
 }
 
 class AttackUsed extends CharacterAction {
-  const AttackUsed(this.attack, {this.attacksPerAction = 1});
+  const AttackUsed(
+    this.attack, {
+    this.attacksPerAction = 1,
+    this.offHand = false,
+  });
   final AttackInfo attack;
   final int attacksPerAction;
+
+  /// Two-Weapon Fighting attack with the bonus action.
+  final bool offHand;
   @override
-  act.ActionResult run(Character c) =>
-      act.useAttack(c, attack, attacksPerAction: attacksPerAction);
+  act.ActionResult run(Character c) => act.useAttack(
+    c,
+    attack,
+    attacksPerAction: attacksPerAction,
+    offHand: offHand,
+  );
 }
 
 class ConditionToggled extends CharacterAction {
@@ -328,4 +349,32 @@ class UndoRequested extends CharacterAction {
   const UndoRequested();
   @override
   act.ActionResult run(Character c) => act.ActionResult(c, 'Undo');
+}
+
+class DeathMarked extends CharacterAction {
+  const DeathMarked();
+  @override
+  act.ActionResult run(Character c) => act.markDead(c);
+}
+
+class DeathDismissed extends CharacterAction {
+  const DeathDismissed();
+  @override
+  act.ActionResult run(Character c) => act.dismissDeath(c);
+}
+
+class LeveledUp extends CharacterAction {
+  const LeveledUp(this.className, {this.subclass = ''});
+  final String className;
+  final String subclass;
+  @override
+  act.ActionResult run(Character c) =>
+      act.levelUp(c, className, subclass: subclass);
+}
+
+class WeaponProficiencyCycled extends CharacterAction {
+  const WeaponProficiencyCycled(this.itemId);
+  final String itemId;
+  @override
+  act.ActionResult run(Character c) => act.cycleWeaponProficiency(c, itemId);
 }

@@ -79,6 +79,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
   final _subclass = TextEditingController();
   String _class = 'Sorcerer';
   int _level = 1;
+  int _speed = 30;
   final Map<Ability, int> _scores = Map.of(standardArray);
   final Set<Skill> _skills = {};
   bool _starterSpellsOn = true;
@@ -134,6 +135,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
       skills: _skills,
       spells: _spells(),
       starterGear: _starterGear,
+      baseSpeed: _speed,
     );
     await repo.create(c);
     router.go('/c/${c.id}');
@@ -182,6 +184,18 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
           TextField(
             controller: _subclass,
             decoration: const InputDecoration(labelText: 'Subclass (optional)'),
+          ),
+          const SectionLabel('Base speed'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final v in const [25, 30, 35])
+                ChoiceChip(
+                  label: Text('$v ft'),
+                  selected: _speed == v,
+                  onSelected: (_) => setState(() => _speed = v),
+                ),
+            ],
           ),
           const SectionLabel('Level'),
           Row(

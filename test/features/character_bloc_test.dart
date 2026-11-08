@@ -78,6 +78,19 @@ void main() {
     await b.close();
   });
 
+  test('an event right after undo builds on the restored character', () async {
+    final b = make();
+    await settle();
+    final start = last(b).character.hpCurrent;
+    b.add(const HpDamageApplied(10));
+    b.add(const UndoRequested());
+    b.add(const HpDamageApplied(1));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    // The undone 10 damage must not come back.
+    expect(last(b).character.hpCurrent, start - 1);
+    await b.close();
+  });
+
   test('notes are saved without a log entry', () async {
     final b = make();
     await settle();

@@ -99,6 +99,9 @@ class CharacterBloc extends Bloc<CharacterEvent, CharacterState> {
     try {
       if (event is UndoRequested) {
         final undone = await _repo.undoLast(characterId);
+        // Later events must build on the restored character, not the
+        // snapshot from before the undo.
+        _latest = await _repo.get(characterId) ?? _latest;
         _pending = Notice(
           ++_noticeCounter,
           undone == null ? 'Nothing to undo' : 'Undid: $undone',

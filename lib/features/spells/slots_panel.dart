@@ -19,7 +19,14 @@ class SlotsPanel extends StatelessWidget {
     final s = state.stats;
     final bloc = context.read<CharacterBloc>();
     final rows = <Widget>[];
-    for (final e in s.slotMax.entries) {
+    // Include levels that only exist because Flexible Casting created a slot.
+    final levels = {
+      ...s.slotMax.keys,
+      for (final e in c.slotsUsed.entries)
+        if (e.value < 0) e.key,
+    }.toList()..sort();
+    for (final level in levels) {
+      final e = MapEntry(level, s.slotMax[level] ?? 0);
       final used = c.slotsUsed[e.key] ?? 0;
       final remaining = e.value - used;
       final total = remaining > e.value ? remaining : e.value;

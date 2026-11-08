@@ -84,3 +84,136 @@ const List<String> exhaustionRules = [
   'Speed reduced to 0.',
   'Death.',
 ];
+
+/// Cantrips and spells known (or null when the class prepares or has none)
+/// by class level, from the 2014 class tables.
+({int cantrips, int? spells})? knownLimits(String className, int level) {
+  final l = level.clamp(1, 20);
+  int pick(List<int> t) => t[l - 1];
+  switch (className) {
+    case 'Sorcerer':
+      return (
+        cantrips: l >= 10 ? 6 : (l >= 4 ? 5 : 4),
+        spells: pick(const [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          12,
+          13,
+          13,
+          14,
+          14,
+          15,
+          15,
+          15,
+          15,
+        ]),
+      );
+    case 'Bard':
+      return (
+        cantrips: l >= 10 ? 4 : (l >= 4 ? 3 : 2),
+        spells: pick(const [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          15,
+          16,
+          18,
+          19,
+          19,
+          20,
+          22,
+          22,
+          22,
+        ]),
+      );
+    case 'Warlock':
+      return (
+        cantrips: l >= 10 ? 4 : (l >= 4 ? 3 : 2),
+        spells: pick(const [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          10,
+          11,
+          11,
+          12,
+          12,
+          13,
+          13,
+          14,
+          14,
+          15,
+          15,
+        ]),
+      );
+    case 'Ranger':
+      return (
+        cantrips: 0,
+        spells: pick(const [
+          0,
+          2,
+          3,
+          3,
+          4,
+          4,
+          5,
+          5,
+          6,
+          6,
+          7,
+          7,
+          8,
+          8,
+          9,
+          9,
+          10,
+          10,
+          11,
+          11,
+        ]),
+      );
+    case 'Wizard':
+    case 'Cleric':
+      return (cantrips: l >= 10 ? 5 : (l >= 4 ? 4 : 3), spells: null);
+    case 'Druid':
+      return (cantrips: l >= 10 ? 4 : (l >= 4 ? 3 : 2), spells: null);
+  }
+  return null;
+}
+
+/// Extra Attack: attacks per Attack action for a class at a level.
+int attacksPerActionFor(String className, int level) {
+  switch (className) {
+    case 'Fighter':
+      return level >= 20 ? 4 : (level >= 11 ? 3 : (level >= 5 ? 2 : 1));
+    case 'Barbarian':
+    case 'Monk':
+    case 'Paladin':
+    case 'Ranger':
+      return level >= 5 ? 2 : 1;
+  }
+  return 1;
+}

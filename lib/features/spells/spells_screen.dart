@@ -8,6 +8,7 @@ import '../../domain/character_factory.dart';
 import '../../domain/models.dart';
 import '../../domain/rules.dart';
 import '../../domain/srd_data.dart';
+import '../../domain/tables.dart';
 import '../character/character_bloc.dart';
 import '../character/character_event.dart';
 import '../character/loaded_builder.dart';
@@ -41,7 +42,13 @@ class _SpellsScreenState extends State<SpellsScreen> {
         final bloc = context.read<CharacterBloc>();
         final casting = s.stats.spellcasting;
         final template = templateFor(c.primaryClass.className);
-        final prepares = template?.spellModel == SpellModel.prepared;
+        final model = spellModelFor(c.primaryClass, template);
+        final prepares = model == SpellModel.prepared;
+        final limits = knownLimits(
+          c.primaryClass.className,
+          c.primaryClass.level,
+        );
+        final cantripCount = c.spells.where((x) => x.isCantrip).length;
         var spells = [...c.spells]
           ..sort(
             (a, b) => a.level != b.level
@@ -203,15 +210,15 @@ class _SpellsScreenState extends State<SpellsScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Prepared: $preparedCount / ${preparedLimit(c, s.stats)}',
+                    '${c.primaryClass.className == 'Wizard' ? 'Spellbook: ${c.spells.where((x) => !x.isCantrip).length} spells. ' : ''}Prepared: $preparedCount / ${preparedLimit(c, s.stats)}${limits == null ? '' : ' · Cantrips: $cantripCount / ${limits.cantrips}'}',
                     style: const TextStyle(color: Palette.textDim),
                   ),
                 ),
-              if (template?.spellModel == SpellModel.known)
+              if (model == SpellModel.known)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Known: ${c.spells.where((x) => !x.isCantrip).length} spells, ${c.spells.where((x) => x.isCantrip).length} cantrips',
+                    'Known: ${c.spells.where((x) => !x.isCantrip).length}${limits?.spells == null ? '' : ' / ${limits!.spells}'} spells, $cantripCount${limits == null ? '' : ' / ${limits.cantrips}'} cantrips',
                     style: const TextStyle(color: Palette.textDim),
                   ),
                 ),
@@ -372,10 +379,24 @@ class _SpellTile extends StatelessWidget {
     final bloc = context.read<CharacterBloc>();
     final c = state.character;
     final s = state.stats;
+    // Casting a second concentration spell ends the first: ask first.
+    var replace = false;
+    if (spell.concentration &&
+        c.concentration != null &&
+        c.concentration != spell.name) {
+      final ok = await confirm(
+        context,
+        'You are concentrating on ${c.concentration}. Casting ${spell.name} will end it.',
+        yes: 'End it and cast',
+      );
+      if (!ok) return;
+      replace = true;
+    }
     if (spell.isCantrip) {
-      bloc.add(SpellCast(spell));
+      bloc.add(SpellCast(spell, replaceConcentration: replace));
       return;
     }
+    if (!context.mounted) return;
     final choice = await showModalBottomSheet<_CastChoice>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -430,7 +451,7 @@ class _SpellTile extends StatelessWidget {
                     ),
                 ],
               ),
-              if (spell.ritual) ...[
+              if (canRitualCast(c, spell)) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () =>
@@ -451,6 +472,7 @@ class _SpellTile extends StatelessWidget {
           slotLevel: choice.level,
           ritual: choice.ritual,
           pact: choice.pact,
+          replaceConcentration: replace,
         ),
       );
     }

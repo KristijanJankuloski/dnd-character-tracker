@@ -82,6 +82,8 @@ class CharacterStats {
     required this.attacks,
     required this.warnings,
     required this.hitDice,
+    required this.attacksPerAction,
+    required this.traits,
     required this.changedScores,
   });
 
@@ -111,6 +113,12 @@ class CharacterStats {
 
   /// Max hit dice by die size.
   final Map<int, int> hitDice;
+
+  /// Attacks per Attack action (Extra Attack).
+  final int attacksPerAction;
+
+  /// Notes from active effects (resistances, senses) as (source, text).
+  final List<(String, String)> traits;
   final Set<Ability> changedScores;
 }
 
@@ -209,9 +217,40 @@ CasterType _casterTypeFor(ClassLevel cl, ClassTemplate? t) {
   return t.caster;
 }
 
-int maxResource(Character c, Resource r, int Function(Ability) mod) => r
-    .maxFormula
-    .resolve(level: c.level, prof: proficiencyForLevel(c.level), mod: mod);
+/// The level a resource scales with: its class level, or the total level for
+/// resources that aren't tied to a class. Zero if the class isn't taken.
+int resourceLevel(Character c, Resource r) {
+  if (r.className.isEmpty) return c.level;
+  return c.classes
+      .where((cl) => cl.className == r.className)
+      .fold(0, (sum, cl) => sum + cl.level);
+}
+
+int maxResource(Character c, Resource r, int Function(Ability) mod) =>
+    r.maxFormula.resolve(
+      level: resourceLevel(c, r).clamp(1, 20),
+      prof: proficiencyForLevel(c.level),
+      mod: mod,
+    );
+
+/// The casting ability for a class level entry. Eldritch Knight and Arcane
+/// Trickster cast with INT.
+Ability? spellAbilityFor(ClassLevel cl, ClassTemplate? t) {
+  if (t == null) return null;
+  if (t.spellAbility != null) return t.spellAbility;
+  if (_casterTypeFor(cl, t) == CasterType.third) return Ability.int_;
+  return null;
+}
+
+/// Spell model for a class level entry. Third casters know spells.
+SpellModel spellModelFor(ClassLevel cl, ClassTemplate? t) {
+  if (t == null) return SpellModel.none;
+  if (t.spellModel == SpellModel.none &&
+      _casterTypeFor(cl, t) == CasterType.third) {
+    return SpellModel.known;
+  }
+  return t.spellModel;
+}
 
 int maxHpBase(Character c, int conMod) {
   var hp = 0;
@@ -281,7 +320,7 @@ CharacterStats resolveStats(Character c) {
       Breakdown([
         Part(armor.name, a.baseAc),
         if (a.category != ArmorCategory.heavy) Part('DEX', dex),
-        if (armor.magicBonus != 0) Part('Magic', armor.magicBonus),
+        if (armor.magicBonusActive != 0) Part('Magic', armor.magicBonusActive),
       ]),
     ));
   } else {
@@ -331,7 +370,7 @@ CharacterStats resolveStats(Character c) {
   ];
   final acParts = [...best.$2.parts];
   if (shield != null) {
-    acParts.add(Part(shield.name, 2 + shield.magicBonus));
+    acParts.add(Part(shield.name, 2 + shield.magicBonusActive));
   }
   final ac = applyEffects(Breakdown(acParts), StatTarget.ac, effects);
 
@@ -371,7 +410,7 @@ CharacterStats resolveStats(Character c) {
   var carried = c.items.fold<double>(0, (s, i) => s + i.weight * i.quantity);
   if (c.variantEncumbrance) carried += c.wallet.coinCount / 50;
   final capacity = scores[Ability.str]! * 15.0;
-  final speedParts = <Part>[const Part('Base', 30)];
+  final speedParts = <Part>[Part('Base', c.baseSpeed)];
   if (armor?.armor != null &&
       armor!.armor!.strReq > 0 &&
       scores[Ability.str]! < armor.armor!.strReq &&
@@ -401,18 +440,20 @@ CharacterStats resolveStats(Character c) {
     warnings.add('Speed is 0 while grappled or restrained.');
   }
 
-  // Saves.
-  final saveEffects = effects
-      .where((e) => e.target == StatTarget.saves)
-      .toList();
+  // Saves. Effects can hit all saves or one; `set` only applies if higher.
   final saves = <Ability, Breakdown>{};
   for (final a in Ability.values) {
-    saves[a] = Breakdown([
+    final base = Breakdown([
       Part(a.abbr, mod(a)),
       if (c.saveProfs.contains(a)) Part('Proficiency', prof),
-      for (final e in saveEffects)
-        Part(e.source.isEmpty ? 'Bonus' : e.source, e.value),
     ]);
+    final relevant = [
+      for (final e in effects)
+        if (e.target == StatTarget.saves ||
+            (e.target == StatTarget.save && e.subject == a.name))
+          e.retarget(StatTarget.saves),
+    ];
+    saves[a] = applyEffects(base, StatTarget.saves, relevant);
   }
 
   // Skills and passives.
@@ -426,7 +467,10 @@ CharacterStats resolveStats(Character c) {
     if (p == Proficiency.none && c.jackOfAllTrades) {
       bonusParts.add(Part('Jack of All Trades', prof ~/ 2));
     }
-    skills[s] = Breakdown(bonusParts);
+    skills[s] = applyEffects(Breakdown(bonusParts), StatTarget.skill, [
+      for (final e in effects)
+        if (e.target == StatTarget.skill && e.subject == s.name) e,
+    ]);
     final adv = c.skillAdv[s] ?? AdvState.none;
     passives[s] =
         10 +
@@ -446,24 +490,19 @@ CharacterStats resolveStats(Character c) {
   for (final cl in c.classes) {
     final t = templateFor(cl.className);
     final type = _casterTypeFor(cl, t);
-    if (t == null || type == CasterType.none || t.spellAbility == null) {
-      continue;
-    }
-    final ab = t.spellAbility!;
-    final extraDc = effects
-        .where((e) => e.target == StatTarget.spellDc)
-        .fold(0, (s, e) => s + e.value);
-    final extraAtk = effects
-        .where((e) => e.target == StatTarget.spellAttack)
-        .fold(0, (s, e) => s + e.value);
-    spellcasting.add(
-      SpellcastingInfo(
-        cl.className,
-        ab,
-        8 + prof + mod(ab) + extraDc,
-        prof + mod(ab) + extraAtk,
-      ),
-    );
+    final ab = spellAbilityFor(cl, t);
+    if (t == null || type == CasterType.none || ab == null) continue;
+    final dc = applyEffects(
+      Breakdown([Part('Base', 8 + prof + mod(ab))]),
+      StatTarget.spellDc,
+      effects,
+    ).total;
+    final attack = applyEffects(
+      Breakdown([Part('Base', prof + mod(ab))]),
+      StatTarget.spellAttack,
+      effects,
+    ).total;
+    spellcasting.add(SpellcastingInfo(cl.className, ab, dc, attack));
   }
 
   // Slots.
@@ -508,6 +547,15 @@ CharacterStats resolveStats(Character c) {
     attacks: attacks,
     warnings: warnings,
     hitDice: hitDice,
+    attacksPerAction: c.classes.fold(1, (best, cl) {
+      final n = attacksPerActionFor(cl.className, cl.level);
+      return n > best ? n : best;
+    }),
+    traits: [
+      for (final e in effects)
+        if (e.target == StatTarget.note && e.note.isNotEmpty)
+          (e.source, e.note),
+    ],
     changedScores: changed,
   );
 }
@@ -526,15 +574,6 @@ List<AttackInfo> _attacks(
   final dmgBonus = effects
       .where((e) => e.target == StatTarget.damageBonus)
       .fold(0, (s, e) => s + e.value);
-  final martialOk = c.classes.any(
-    (cl) => const {
-      'Barbarian',
-      'Fighter',
-      'Paladin',
-      'Ranger',
-    }.contains(cl.className),
-  );
-
   for (final i in c.items.where(
     (i) => i.type == ItemType.weapon && i.equipped && i.weapon != null,
   )) {
@@ -547,10 +586,10 @@ List<AttackInfo> _attacks(
     } else {
       ability = w.ranged ? Ability.dex : Ability.str;
     }
-    final proficient = !w.martial || martialOk;
+    final proficient = weaponProficient(c, i);
     final mod = mods[ability]!;
-    final bonus = mod + (proficient ? prof : 0) + i.magicBonus + atkBonus;
-    final flat = mod + i.magicBonus + dmgBonus;
+    final bonus = mod + (proficient ? prof : 0) + i.magicBonusActive + atkBonus;
+    final flat = mod + i.magicBonusActive + dmgBonus;
     String dmg(String dice) =>
         '$dice${flat == 0 ? '' : signed(flat)} ${w.damageType}';
     list.add(
@@ -624,9 +663,40 @@ int concentrationDc(int damage) {
 int preparedLimit(Character c, CharacterStats s) {
   final cl = c.primaryClass;
   final t = templateFor(cl.className);
-  if (t == null || t.spellAbility == null) return 0;
-  final modv = s.mods[t.spellAbility]!;
+  final ability = spellAbilityFor(cl, t);
+  if (t == null || ability == null) return 0;
+  final modv = s.mods[ability]!;
   final lvl = cl.className == 'Paladin' ? cl.level ~/ 2 : cl.level;
   final n = modv + lvl;
   return n < 1 ? 1 : n;
+}
+
+/// Whether the character is proficient with a weapon item: a manual override
+/// wins, then the character's simple/martial/named proficiencies.
+bool weaponProficient(Character c, Item i) {
+  if (i.proficientOverride != null) return i.proficientOverride!;
+  final w = i.weapon;
+  if (w == null) return false;
+  final category = w.martial ? 'martial' : 'simple';
+  return c.weaponProfs.contains(category) ||
+      c.weaponProfs.contains(i.name.toLowerCase());
+}
+
+/// Who may ritual cast (2014): Wizards from the spellbook, Bards from known
+/// spells, Clerics and Druids only prepared rituals. Others need the
+/// `ritualCasting` flag (a feature such as Pact of the Tome).
+bool canRitualCast(Character c, Spell spell) {
+  if (!spell.ritual) return false;
+  if (c.flags.contains('ritualCasting')) return true;
+  for (final cl in c.classes) {
+    switch (cl.className) {
+      case 'Wizard':
+      case 'Bard':
+        return true;
+      case 'Cleric':
+      case 'Druid':
+        if (spell.prepared) return true;
+    }
+  }
+  return false;
 }

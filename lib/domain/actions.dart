@@ -3,6 +3,7 @@
 /// for the fourth attunement.
 library;
 
+import 'class_templates.dart';
 import 'models.dart';
 import 'rules.dart';
 import 'tables.dart';
@@ -54,8 +55,9 @@ ActionResult applyDamage(Character c, int amount, {bool crit = false}) {
       failures += crit ? 2 : 1;
       stable = false;
       if (remaining >= stats.maxHp) {
-        dead = true;
-        warnings.add('Damage at 0 HP equals or exceeds max HP: instant death.');
+        warnings.add(
+          'Damage at 0 HP equals or exceeds max HP: instant death by the rules. Use "Mark as dead" if your DM confirms.',
+        );
       }
       if (failures >= 3) dead = true;
     }
@@ -68,9 +70,8 @@ ActionResult applyDamage(Character c, int amount, {bool crit = false}) {
       successes = 0;
       failures = 0;
       if (overflow >= stats.maxHp) {
-        dead = true;
         warnings.add(
-          'Remaining damage ($overflow) equals or exceeds max HP: instant death. Confirm with your DM.',
+          'Remaining damage ($overflow) equals or exceeds max HP: instant death by the rules. Use "Mark as dead" if your DM confirms.',
         );
       }
       if (concentration != null) {
@@ -79,14 +80,15 @@ ActionResult applyDamage(Character c, int amount, {bool crit = false}) {
       }
     } else {
       hp = newHp;
-      if (concentration != null && remaining > 0) {
-        warnings.add(
-          'Concentration check: CON save DC ${concentrationDc(remaining)} to keep $concentration.',
-        );
-      }
+    }
+    // Damage that only hit temp HP still calls for a concentration check.
+    if (hp > 0 && concentration != null) {
+      warnings.add(
+        'Concentration check: CON save DC ${concentrationDc(amount)} to keep $concentration.',
+      );
     }
   }
-  if (dead) warnings.add('${c.name} is dead.');
+  if (dead && !c.dead) warnings.add('${c.name} is dead.');
 
   final out = c.copyWith(
     hpCurrent: hp,
@@ -109,6 +111,12 @@ ActionResult applyHeal(Character c, int amount) {
   if (amount <= 0) {
     return ActionResult.blocked(c, 'Enter a healing amount above 0.');
   }
+  if (c.dead) {
+    return ActionResult.blocked(
+      c,
+      '${c.name} is marked dead. Dismiss that first if it was a mistake.',
+    );
+  }
   final max = resolveStats(c).maxHp;
   final hp = (c.hpCurrent + amount).clamp(0, max);
   final out = c.copyWith(
@@ -121,6 +129,18 @@ ActionResult applyHeal(Character c, int amount) {
   );
   return ActionResult(out, 'Healed $amount: HP ${c.hpCurrent} to $hp');
 }
+
+/// The player decides death (for example after massive damage).
+ActionResult markDead(Character c) => ActionResult(
+  c.copyWith(dead: true, stable: false),
+  '${c.name} marked dead',
+);
+
+/// Clears a death banner and the death saves. The character stays at 0 HP.
+ActionResult dismissDeath(Character c) => ActionResult(
+  c.copyWith(dead: false, deathSuccesses: 0, deathFailures: 0, stable: false),
+  'Dismissed death for ${c.name}',
+);
 
 ActionResult setTempHp(Character c, int value) {
   final v = value < 0 ? 0 : value;
@@ -177,9 +197,14 @@ ActionResult spendHitDie(Character c, int die, int roll) {
   final used = c.hitDiceUsed[die] ?? 0;
   if (used >= max) return ActionResult.blocked(c, 'No d$die hit dice left.');
   final healing = (roll + stats.mods[Ability.con]!).clamp(0, 999);
-  final healed = applyHeal(c, healing == 0 ? 1 : healing);
+  var out = c;
+  if (healing > 0) {
+    final healed = applyHeal(c, healing);
+    if (healed.blocked) return healed;
+    out = healed.character;
+  }
   return ActionResult(
-    healed.character.copyWith(hitDiceUsed: {...c.hitDiceUsed, die: used + 1}),
+    out.copyWith(hitDiceUsed: {...c.hitDiceUsed, die: used + 1}),
     'Spent a d$die hit die (rolled $roll): healed $healing',
   );
 }
@@ -249,10 +274,27 @@ ActionResult castSpell(
   int? slotLevel,
   bool ritual = false,
   bool pact = false,
+  bool replaceConcentration = false,
 }) {
   final s = resolveStats(c);
   final warnings = <String>[];
   var out = c;
+
+  if (ritual && !canRitualCast(c, spell)) {
+    return ActionResult.blocked(
+      c,
+      '${spell.name} cannot be cast as a ritual by this character.',
+    );
+  }
+  if (spell.concentration &&
+      c.concentration != null &&
+      c.concentration != spell.name &&
+      !replaceConcentration) {
+    return ActionResult.blocked(
+      c,
+      'You are concentrating on ${c.concentration}. Casting ${spell.name} would end it.',
+    );
+  }
 
   if (s.warnings.any((w) => w.contains("can't cast"))) {
     warnings.add(
@@ -318,9 +360,7 @@ ActionResult castSpell(
   // Concentration.
   if (spell.concentration) {
     if (out.concentration != null && out.concentration != spell.name) {
-      warnings.add(
-        'Ended concentration on ${out.concentration} to concentrate on ${spell.name}.',
-      );
+      warnings.add('Ended concentration on ${out.concentration}.');
     }
     out = out.copyWith(concentration: spell.name);
   }
@@ -365,9 +405,32 @@ ActionResult addSpell(Character c, Spell spell) {
   if (c.spells.any((s) => s.name == spell.name)) {
     return ActionResult.blocked(c, '${spell.name} is already on the list.');
   }
+  final cl = c.primaryClass;
+  final t = templateFor(cl.className);
+  final model = spellModelFor(cl, t);
+  // Prepared casters add to their list unprepared; cantrips are always ready.
+  final added = model == SpellModel.prepared && !spell.isCantrip
+      ? spell.copyWith(prepared: false)
+      : spell;
+  final warnings = <String>[];
+  final limits = knownLimits(cl.className, cl.level);
+  if (limits != null) {
+    final all = [...c.spells, added];
+    final cantrips = all.where((s) => s.isCantrip).length;
+    if (cantrips > limits.cantrips) {
+      warnings.add('$cantrips cantrips; your class knows ${limits.cantrips}.');
+    }
+    final known = all.where((s) => !s.isCantrip).length;
+    if (limits.spells != null && known > limits.spells!) {
+      warnings.add(
+        '$known spells known; your class limit is ${limits.spells}.',
+      );
+    }
+  }
   return ActionResult(
-    c.copyWith(spells: [...c.spells, spell]),
+    c.copyWith(spells: [...c.spells, added]),
     'Added spell ${spell.name}',
+    warnings: warnings,
   );
 }
 
@@ -521,24 +584,49 @@ ActionResult newTurn(Character c) =>
 
 ActionResult addMovement(Character c, int feet) {
   final speed = resolveStats(c).speed.total;
-  final used = (c.turn.movementUsed + feet).clamp(0, speed);
+  final used = c.turn.movementUsed + feet < 0 ? 0 : c.turn.movementUsed + feet;
   return ActionResult(
     c.copyWith(turn: c.turn.copyWith(movementUsed: used)),
     'Moved $feet ft.',
+    warnings: [
+      if (used > speed) 'Over your speed by ${used - speed} ft. (Dash?)',
+    ],
   );
 }
 
 /// Use an attack card: first attack marks the Action; Extra Attack is tracked
 /// by [attacksPerAction].
-ActionResult useAttack(Character c, AttackInfo a, {int attacksPerAction = 1}) {
+ActionResult useAttack(
+  Character c,
+  AttackInfo a, {
+  int attacksPerAction = 1,
+  bool offHand = false,
+}) {
   var out = c;
   final warnings = <String>[];
-  var made = c.turn.attacksMade + 1;
   var turn = c.turn;
-  if (made >= attacksPerAction) {
-    turn = turn.copyWith(action: true, attacksMade: 0);
+  if (offHand) {
+    // Two-Weapon Fighting: the Light-weapon attack uses the bonus action.
+    final item = c.items.where((i) => i.id == a.itemId).firstOrNull;
+    if (item?.weapon?.light != true) {
+      warnings.add('Two-Weapon Fighting needs a Light melee weapon.');
+    }
+    if (!c.turn.action && c.turn.attacksMade == 0) {
+      warnings.add(
+        'Two-Weapon Fighting: take the Attack action with a Light weapon first.',
+      );
+    }
+    warnings.add(
+      "Off-hand damage doesn't add your ability modifier unless it is negative.",
+    );
+    turn = turn.copyWith(bonusAction: true);
   } else {
-    turn = turn.copyWith(attacksMade: made);
+    final made = c.turn.attacksMade + 1;
+    if (made >= attacksPerAction) {
+      turn = turn.copyWith(action: true, attacksMade: 0);
+    } else {
+      turn = turn.copyWith(attacksMade: made);
+    }
   }
   out = out.copyWith(turn: turn);
 
@@ -568,9 +656,20 @@ ActionResult toggleCondition(Character c, String id) {
   final set = {...c.conditions};
   final removed = set.remove(id);
   if (!removed) set.add(id);
+  // Incapacitating conditions end concentration.
+  const breaksConcentration = {
+    'incapacitated',
+    'stunned',
+    'paralyzed',
+    'unconscious',
+    'petrified',
+  };
+  final ends =
+      !removed && breaksConcentration.contains(id) && c.concentration != null;
   return ActionResult(
-    c.copyWith(conditions: set),
+    c.copyWith(conditions: set, concentration: ends ? null : c.concentration),
     '${removed ? 'Removed' : 'Added'} condition $id',
+    warnings: [if (ends) 'Concentration on ${c.concentration} ended ($id).'],
   );
 }
 
@@ -614,7 +713,7 @@ List<String> restPreview(Character c, {required bool longRest}) {
     lines.add('Spend hit dice on the Character tab to heal');
     if (c.pactUsed > 0) lines.add('Pact slots');
   }
-  for (final r in c.resources.where((r) => c.level >= r.minLevel)) {
+  for (final r in c.resources.where((r) => resourceLevel(c, r) >= r.minLevel)) {
     final gain = _rechargeAmount(c, r, longRest);
     if (gain > 0 && r.current < resourceMax(c, r)) {
       lines.add(
@@ -623,7 +722,11 @@ List<String> restPreview(Character c, {required bool longRest}) {
     }
   }
   final timed = c.modifiers
-      .where((m) => m.active && m.note.startsWith('timer:'))
+      .where(
+        (m) =>
+            m.active &&
+            (m.note == 'timer:short' || (longRest && m.note == 'timer:long')),
+      )
       .length;
   if (timed > 0) lines.add('$timed timed modifier(s) end');
   return lines;
@@ -633,7 +736,7 @@ int _rechargeAmount(Character c, Resource r, bool longRest) {
   final max = resourceMax(c, r);
   var best = 0;
   for (final rule in r.rules) {
-    if (c.level < rule.minLevel) continue;
+    if (resourceLevel(c, r) < rule.minLevel) continue;
     final applies =
         rule.when == RechargeWhen.shortRest ||
         (rule.when == RechargeWhen.longRest && longRest);
@@ -649,17 +752,23 @@ int _rechargeAmount(Character c, Resource r, bool longRest) {
 }
 
 ActionResult takeRest(Character c, {required bool longRest}) {
+  if (c.dead) {
+    return ActionResult.blocked(
+      c,
+      '${c.name} is marked dead. Dismiss that first if it was a mistake.',
+    );
+  }
   final s = resolveStats(c);
   var out = c;
   final resources = [
     for (final r in c.resources)
       () {
-        if (c.level < r.minLevel) return r;
+        if (resourceLevel(c, r) < r.minLevel) return r;
         final gain = _rechargeAmount(c, r, longRest);
-        if (gain == 0) return r;
+        // Active states (Rage, Wild Shape) end on any rest.
+        if (gain == 0) return r.active ? r.copyWith(active: false) : r;
         final max = resourceMax(c, r);
         final next = (r.current + gain).clamp(0, max);
-        // Active states (Rage) end on a rest.
         return r.copyWith(current: next, active: false);
       }(),
   ];
@@ -941,5 +1050,117 @@ ActionResult cycleAdvantage(Character c, Skill skill) {
   return ActionResult(
     c.copyWith(skillAdv: {...c.skillAdv, skill: next}),
     '${skill.label} ${next.name}',
+  );
+}
+
+// ---------------------------------------------------------------- Level up
+
+/// Adds a level in [className] (taking the class if the character doesn't have
+/// it yet). Max HP, slots and hit dice are derived, so they follow on their
+/// own. New class resources are added, and resource pools that grew gain the
+/// difference in current value.
+ActionResult levelUp(Character c, String className, {String subclass = ''}) {
+  final template = classTemplates[className];
+  if (template == null) {
+    return ActionResult.blocked(c, 'Unknown class $className.');
+  }
+  if (c.level >= 20) {
+    return ActionResult.blocked(c, 'Characters top out at level 20.');
+  }
+  final before = resolveStats(c);
+  final warnings = <String>[];
+
+  var classes = <ClassLevel>[];
+  final existing = c.classes
+      .where((cl) => cl.className == className)
+      .firstOrNull;
+  if (existing != null) {
+    classes = [
+      for (final cl in c.classes)
+        cl.className == className
+            ? ClassLevel(
+                cl.className,
+                cl.level + 1,
+                subclass: subclass.isNotEmpty ? subclass : cl.subclass,
+              )
+            : cl,
+    ];
+  } else {
+    classes = [...c.classes, ClassLevel(className, 1, subclass: subclass)];
+    warnings.add(
+      "Multiclassing: extra proficiencies aren't added automatically. Edit them on the character if you gain any.",
+    );
+  }
+  final newClassLevel = classes
+      .firstWhere((cl) => cl.className == className)
+      .level;
+
+  var out = c.copyWith(classes: classes);
+  final after = resolveStats(out);
+
+  // Resources: grow existing pools, add the class's new ones.
+  int maxOf(Character ch, Resource r) {
+    final st = resolveStats(ch);
+    return maxResource(ch, r, (a) => st.mods[a]!);
+  }
+
+  final resources = <Resource>[];
+  for (final r in c.resources) {
+    final delta = maxOf(out, r) - maxOf(c, r);
+    resources.add(delta > 0 ? r.copyWith(current: r.current + delta) : r);
+  }
+  for (final rt in template.resources) {
+    if (resources.any((r) => r.id == rt.id)) continue;
+    resources.add(rt.build(className, (r) => maxOf(out, r)));
+  }
+  final features = [...c.features];
+  for (final f in template.features) {
+    if (!features.any((x) => x.name == f.name)) features.add(f);
+  }
+  out = out.copyWith(resources: resources, features: features);
+
+  // HP: the new maximum, and the same amount of current HP, unless down.
+  final gain = after.maxHp - before.maxHp;
+  if (gain > 0 && out.hpCurrent > 0) {
+    out = out.copyWith(hpCurrent: out.hpCurrent + gain);
+  }
+
+  final asiLevels = {
+    4,
+    8,
+    12,
+    16,
+    19,
+    if (className == 'Fighter') ...{6, 14},
+    if (className == 'Rogue') 10,
+  };
+  if (asiLevels.contains(newClassLevel)) {
+    warnings.add(
+      'Ability Score Improvement or a feat is available. Edit your ability scores on the Sheet tab.',
+    );
+  }
+  return ActionResult(
+    out,
+    'Leveled up: $className $newClassLevel (character level ${out.level}), max HP ${before.maxHp} to ${after.maxHp}',
+    warnings: warnings,
+  );
+}
+
+/// Weapon proficiency override: automatic, then proficient, then not.
+ActionResult cycleWeaponProficiency(Character c, String itemId) {
+  final item = c.items.firstWhere((i) => i.id == itemId);
+  final Object? next = switch (item.proficientOverride) {
+    null => true,
+    true => false,
+    false => null,
+  };
+  return ActionResult(
+    c.copyWith(
+      items: [
+        for (final i in c.items)
+          i.id == itemId ? i.copyWith(proficientOverride: next) : i,
+      ],
+    ),
+    '${item.name} proficiency: ${next == null ? 'automatic' : (next == true ? 'proficient' : 'not proficient')}',
   );
 }

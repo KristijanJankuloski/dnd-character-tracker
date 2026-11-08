@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../domain/actions.dart' as act;
+import '../../domain/class_templates.dart';
 import '../../domain/repository.dart';
 import '../character/character_bloc.dart';
 import '../character/character_event.dart';
@@ -25,6 +26,27 @@ class JournalScreen extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            Panel(
+              title: 'Level ${c.level}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    c.classLine,
+                    style: const TextStyle(color: Palette.textDim),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: c.level >= 20
+                        ? null
+                        : () => _levelUp(context, s),
+                    icon: const Icon(Icons.arrow_upward),
+                    label: const Text('Level up'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             Panel(
               title: 'Rest',
               child: Row(
@@ -122,6 +144,57 @@ class JournalScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _levelUp(BuildContext context, CharacterLoaded s) async {
+    final bloc = context.read<CharacterBloc>();
+    var className = s.character.primaryClass.className;
+    final subclass = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          title: const Text('Level up'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: className,
+                decoration: const InputDecoration(
+                  labelText: 'Gain a level in',
+                  helperText: 'Pick another class to multiclass',
+                ),
+                items: [
+                  for (final n in classTemplates.keys)
+                    DropdownMenuItem(value: n, child: Text(n)),
+                ],
+                onChanged: (v) => set(() => className = v ?? className),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: subclass,
+                decoration: const InputDecoration(
+                  labelText: 'Subclass (optional)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Level up'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      bloc.add(LeveledUp(className, subclass: subclass.text.trim()));
+    }
   }
 
   Future<void> _rest(

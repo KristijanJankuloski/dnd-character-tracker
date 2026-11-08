@@ -21,6 +21,7 @@ Character createCharacter({
   Set<Skill> skills = const {},
   List<Spell> spells = const [],
   bool starterGear = true,
+  int baseSpeed = 30,
 }) {
   final t = classTemplates[className]!;
   var c = Character(
@@ -32,6 +33,8 @@ Character createCharacter({
     abilities: abilities,
     saveProfs: t.saves,
     armorProfs: t.armor,
+    weaponProfs: t.weaponProfs,
+    baseSpeed: baseSpeed,
     skills: {for (final s in skills) s: Proficiency.proficient},
     hpCurrent: 1,
     features: t.features,
@@ -46,7 +49,7 @@ Character createCharacter({
   final resources = [
     for (final rt in t.resources)
       rt.build(
-        level,
+        className,
         (r) => r.maxFormula.resolve(
           level: level,
           prof: stats.proficiency,
@@ -70,7 +73,7 @@ Character createCharacter({
         srdItems.firstWhere((i) => i.name == 'Shield'),
       if (!t.armor.contains('heavy') && t.armor.contains('light'))
         srdItems.firstWhere((i) => i.name == 'Leather'),
-      if (t.armor.isEmpty || className == 'Sorcerer')
+      if (const {'Sorcerer', 'Wizard', 'Warlock'}.contains(className))
         srdItems.firstWhere((i) => i.name == 'Arcane Focus'),
     ];
     c = c.copyWith(
