@@ -29,6 +29,11 @@ class _View extends StatelessWidget {
         title: const Text('Characters'),
         actions: [
           IconButton(
+            tooltip: 'Receive a character from another device',
+            icon: const Icon(Icons.qr_code_scanner),
+            onPressed: () => context.push('/receive'),
+          ),
+          IconButton(
             tooltip: 'Import backup from clipboard',
             icon: const Icon(Icons.file_download_outlined),
             onPressed: () => _import(context),
@@ -120,7 +125,11 @@ class _View extends StatelessWidget {
                     '${c.race} · ${c.classLine}\nHP ${c.hpCurrent}',
                   ),
                   isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: IconButton(
+                    tooltip: 'Share ${c.name}',
+                    icon: const Icon(Icons.qr_code_2),
+                    onPressed: () => context.push('/share/${c.id}'),
+                  ),
                   onTap: () => context.go('/c/${c.id}'),
                 ),
               );

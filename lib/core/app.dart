@@ -6,12 +6,20 @@ import '../domain/repository.dart';
 import '../features/character/character_page.dart';
 import '../features/list/character_list_screen.dart';
 import '../features/list/create_character_screen.dart';
+import '../features/share/receive_screen.dart';
+import '../features/share/share_screen.dart';
 import 'theme.dart';
 
 GoRouter buildRouter() => GoRouter(
   routes: [
     GoRoute(path: '/', builder: (_, _) => const CharacterListScreen()),
     GoRoute(path: '/create', builder: (_, _) => const CreateCharacterScreen()),
+    GoRoute(path: '/receive', builder: (_, _) => const ReceiveScreen()),
+    GoRoute(
+      path: '/share/:id',
+      builder: (_, state) =>
+          ShareScreen(characterId: state.pathParameters['id']!),
+    ),
     GoRoute(
       path: '/c/:id',
       builder: (_, state) =>

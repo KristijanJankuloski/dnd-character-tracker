@@ -1,4 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Character sharing: the camera scans the share code, and the
+         character itself is sent over the local network (never the
+         internet). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Scanning still works from a picture on phones without a camera. -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- The camera plugin asks for these, but scanning never records audio
+         or writes files. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
     <application
         android:label="JJs Character Tracker"
         android:name="${applicationName}"

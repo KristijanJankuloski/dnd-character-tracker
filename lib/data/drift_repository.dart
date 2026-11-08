@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../domain/models.dart';
 import '../domain/repository.dart';
@@ -200,20 +201,34 @@ class DriftCharacterRepository implements CharacterRepository {
 
   @override
   Future<Character> importJson(String json) async {
-    final decoded = jsonDecode(json);
-    if (decoded is! Map) throw const FormatException('Not a character file');
-    final map = decoded.cast<String, Object?>();
-    final version = (map['schemaVersion'] as num?)?.toInt() ?? 1;
-    if (version > 1) {
-      throw FormatException('Unsupported schema version $version');
-    }
-    final c = Character.fromJson(map);
+    final c = decodeCharacterJson(json);
     // Import as a copy so it never overwrites an existing character.
-    final copy = Character.fromJson({
-      ...c.toJson(),
-      'id': 'char-${DateTime.now().microsecondsSinceEpoch}',
-    });
+    final copy = _withId(c, const Uuid().v4());
     await create(copy);
     return copy;
   }
+
+  @override
+  Future<Character> receive(Character c, {bool asCopy = false}) async {
+    if (asCopy) {
+      final copy = _withId(c, const Uuid().v4());
+      await create(copy);
+      return copy;
+    }
+    final existing = await get(c.id);
+    if (existing == null) {
+      await create(c);
+    } else {
+      await apply(
+        before: existing,
+        after: c,
+        type: 'received',
+        description: 'Replaced with ${c.name} from another device',
+      );
+    }
+    return c;
+  }
+
+  Character _withId(Character c, String id) =>
+      Character.fromJson({...c.toJson(), 'id': id});
 }
