@@ -409,6 +409,10 @@ class SavesPanel extends StatelessWidget {
       parchment: true,
       child: Column(
         children: [
+          const Text(
+            'Tap the dot for proficiency. Long-press a row to add a bonus.',
+            style: TextStyle(fontSize: 12),
+          ),
           for (final a in Ability.values)
             InkWell(
               onTap: () => showWhy(
@@ -416,17 +420,39 @@ class SavesPanel extends StatelessWidget {
                 '${a.label} save',
                 '${signed(st.saves[a]!.total)} = ${st.saves[a]!.describe()}',
               ),
+              onLongPress: () async {
+                final v = await askNumber(
+                  context,
+                  '${a.label} save bonus',
+                  initial: c.saveBonuses[a] ?? 0,
+                  confirm: 'Set',
+                );
+                if (v != null && context.mounted) {
+                  context.read<CharacterBloc>().add(SaveBonusSet(a, v));
+                }
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
                   children: [
-                    Icon(
-                      c.saveProfs.contains(a)
-                          ? Icons.circle
-                          : Icons.circle_outlined,
-                      size: 14,
+                    Tooltip(
+                      message: 'Toggle ${a.label} save proficiency',
+                      child: InkWell(
+                        onTap: () => context.read<CharacterBloc>().add(
+                          SaveProficiencyToggled(a),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(
+                            c.saveProfs.contains(a)
+                                ? Icons.circle
+                                : Icons.circle_outlined,
+                            size: 14,
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 4),
                     Expanded(child: Text(a.label)),
                     Text(
                       signed(st.saves[a]!.total),

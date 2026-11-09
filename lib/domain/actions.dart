@@ -1070,6 +1070,31 @@ ActionResult setSkill(Character c, Skill skill) {
   );
 }
 
+ActionResult toggleSaveProficiency(Character c, Ability a) {
+  final has = c.saveProfs.contains(a);
+  final next = {...c.saveProfs};
+  has ? next.remove(a) : next.add(a);
+  return ActionResult(
+    c.copyWith(saveProfs: next),
+    '${a.label} save proficiency ${has ? 'removed' : 'added'}',
+  );
+}
+
+ActionResult setSaveBonus(Character c, Ability a, int bonus) {
+  final next = {...c.saveBonuses};
+  bonus == 0 ? next.remove(a) : next[a] = bonus;
+  return ActionResult(
+    c.copyWith(saveBonuses: next),
+    '${a.label} save bonus ${c.saveBonuses[a] ?? 0} to $bonus',
+  );
+}
+
+/// Clears the death save pips without touching HP or the dead state.
+ActionResult resetDeathSaves(Character c) => ActionResult(
+  c.copyWith(deathSuccesses: 0, deathFailures: 0, stable: false),
+  'Reset death saves for ${c.name}',
+);
+
 ActionResult cycleAdvantage(Character c, Skill skill) {
   final cur = c.skillAdv[skill] ?? AdvState.none;
   final next = AdvState.values[(cur.index + 1) % AdvState.values.length];

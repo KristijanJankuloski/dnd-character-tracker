@@ -243,7 +243,7 @@ Future<int?> askNumber(
       content: TextField(
         controller: controller,
         autofocus: true,
-        keyboardType: const TextInputType.numberWithOptions(signed: false),
+        keyboardType: const TextInputType.numberWithOptions(signed: true),
         onSubmitted: (v) => Navigator.pop(ctx, int.tryParse(v)),
       ),
       actions: [

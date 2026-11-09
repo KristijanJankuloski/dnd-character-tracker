@@ -446,6 +446,7 @@ CharacterStats resolveStats(Character c) {
     final base = Breakdown([
       Part(a.abbr, mod(a)),
       if (c.saveProfs.contains(a)) Part('Proficiency', prof),
+      if ((c.saveBonuses[a] ?? 0) != 0) Part('Bonus', c.saveBonuses[a]!),
     ]);
     final relevant = [
       for (final e in effects)

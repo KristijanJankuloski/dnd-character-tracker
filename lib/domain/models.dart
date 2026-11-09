@@ -861,6 +861,7 @@ class Character {
     required this.hpCurrent,
     this.background = '',
     this.saveProfs = const {},
+    this.saveBonuses = const {},
     this.skills = const {},
     this.skillAdv = const {},
     this.jackOfAllTrades = false,
@@ -901,6 +902,9 @@ class Character {
   final List<ClassLevel> classes;
   final Map<Ability, int> abilities;
   final Set<Ability> saveProfs;
+
+  /// Extra flat bonus per ability's saving throw (can be negative).
+  final Map<Ability, int> saveBonuses;
   final Map<Skill, Proficiency> skills;
   final Map<Skill, AdvState> skillAdv;
   final bool jackOfAllTrades;
@@ -964,6 +968,7 @@ class Character {
     List<ClassLevel>? classes,
     Map<Ability, int>? abilities,
     Set<Ability>? saveProfs,
+    Map<Ability, int>? saveBonuses,
     Map<Skill, Proficiency>? skills,
     Map<Skill, AdvState>? skillAdv,
     bool? jackOfAllTrades,
@@ -1004,6 +1009,7 @@ class Character {
     classes: classes ?? this.classes,
     abilities: abilities ?? this.abilities,
     saveProfs: saveProfs ?? this.saveProfs,
+    saveBonuses: saveBonuses ?? this.saveBonuses,
     skills: skills ?? this.skills,
     skillAdv: skillAdv ?? this.skillAdv,
     jackOfAllTrades: jackOfAllTrades ?? this.jackOfAllTrades,
@@ -1053,6 +1059,7 @@ class Character {
     'classes': classes.map((c) => c.toJson()).toList(),
     'abilities': {for (final e in abilities.entries) e.key.name: e.value},
     'saveProfs': saveProfs.map((a) => a.name).toList(),
+    'saveBonuses': {for (final e in saveBonuses.entries) e.key.name: e.value},
     'skills': {for (final e in skills.entries) e.key.name: e.value.name},
     'skillAdv': {for (final e in skillAdv.entries) e.key.name: e.value.name},
     'jackOfAllTrades': jackOfAllTrades,
@@ -1109,6 +1116,7 @@ class Character {
       saveProfs: ((j['saveProfs'] as List?) ?? const [])
           .map((e) => Ability.parse(e as String))
           .toSet(),
+      saveBonuses: map('saveBonuses', Ability.parse, (v) => (v as num).toInt()),
       skills: map(
         'skills',
         Skill.parse,
