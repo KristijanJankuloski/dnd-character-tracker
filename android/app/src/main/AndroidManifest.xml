@@ -4,6 +4,10 @@
          character itself is sent over the local network (never the
          internet). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Syncing with nearby devices: finding other devices on the Wi-Fi
+         network uses Android's own mDNS service (NsdManager), not Google
+         Play Services, so the app stays installable from F-Droid. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Scanning still works from a picture on phones without a camera. -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../domain/repository.dart';
+import '../../domain/sync.dart';
 import 'character_list_cubit.dart';
 
 class CharacterListScreen extends StatelessWidget {
@@ -28,6 +29,12 @@ class _View extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Characters'),
         actions: [
+          if (context.read<SyncStore?>() != null)
+            IconButton(
+              tooltip: 'Sync with nearby devices',
+              icon: const Icon(Icons.sync),
+              onPressed: () => context.push('/sync'),
+            ),
           IconButton(
             tooltip: 'Receive a character from another device',
             icon: const Icon(Icons.qr_code_scanner),
