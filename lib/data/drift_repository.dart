@@ -169,7 +169,7 @@ class DriftCharacterRepository implements CharacterRepository {
     final q = _db.select(_db.logEntries)
       ..where((t) => t.characterId.equals(characterId))
       ..orderBy([(t) => OrderingTerm.desc(t.id)])
-      ..limit(200);
+      ..limit(20);
     return q.watch().map(
       (rows) => [
         for (final r in rows)

@@ -329,7 +329,7 @@ class _LogPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              for (final e in list.take(50))
+              for (final e in list.take(20))
                 ListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
