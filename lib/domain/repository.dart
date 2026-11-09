@@ -96,18 +96,13 @@ abstract class CharacterRepository {
   /// not here.
   Future<String?> exportForSync(String id);
 
-  /// Saves a character received through sync. [remoteTime] is its last-change
-  /// time on the other device and [skewMs] how far that device's clock is
-  /// ahead of this one, so the time kept here means the same thing as the
-  /// times of local edits. Returns the time it was stored with.
-  Future<int> applySynced(Character c, {required int remoteTime, int skewMs});
+  /// Saves a character received through sync, keeping this device's own view
+  /// settings. It is stored as a change made now, so everything this device
+  /// syncs with next sees it as newer than what they last agreed on. Returns
+  /// the time it was stored with.
+  Future<int> applySynced(Character c);
 
-  /// Deletes a character because the other device deleted it. Returns the
-  /// local deletion time, or null if the character was already gone.
-  Future<int> applySyncedDelete(
-    String id, {
-    required String name,
-    required int remoteTime,
-    int skewMs,
-  });
+  /// Deletes a character because the other device deleted it, leaving a
+  /// tombstone. Returns the deletion time stored here.
+  Future<int> applySyncedDelete(String id, {required String name});
 }

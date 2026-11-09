@@ -69,23 +69,25 @@ class Device {
   }
 }
 
+/// What the two people do while pairing: [codeMatches] is what the person on
+/// the initiating device answers, [allow] what the person on [server] does.
 SyncCallbacks callbacks(
   Device server, {
-  List<String?> codes = const [],
+  bool codeMatches = true,
+  bool allow = true,
   Map<String, ConflictChoice>? Function(List<SyncConflict>)? onConflicts,
   List<String>? seen,
+  List<String>? codesSeen,
 }) {
-  final queue = [...codes];
   return SyncCallbacks(
-    askCode: (_) async {
-      if (queue.isEmpty) {
-        // Read what the other device displays.
-        return server.service.incomingPairing.value?.code;
-      }
-      final next = queue.removeAt(0);
-      return next == 'SHOWN'
-          ? server.service.incomingPairing.value?.code
-          : next;
+    confirmCode: (prompt) async {
+      final shown = server.service.incomingPairing.value;
+      // Both screens must show the same code.
+      expect(shown, isNotNull);
+      codesSeen?.add(prompt.code);
+      expect(prompt.code, shown!.code);
+      shown.decide(allow);
+      return codeMatches;
     },
     resolveConflicts: (cs) async {
       seen?.addAll(cs.map((c) => c.name));
@@ -129,7 +131,7 @@ void main() {
     final second = await b.service.sync(
       aPeer,
       SyncCallbacks(
-        askCode: (_) async => fail('should not ask for a code'),
+        confirmCode: (_) async => fail('should not ask to pair again'),
         resolveConflicts: (_) async => {},
       ),
     );
@@ -142,23 +144,17 @@ void main() {
     expect(third.changedNothing, isTrue);
   });
 
-  test('a wrong code is refused and the right one still works', () async {
+  test('both devices show the same six digit code', () async {
     await a.add('Aria');
-    final out = await b.service.sync(
-      aPeer,
-      callbacks(a, codes: ['000000', 'SHOWN']),
-    );
-    expect(out.paired, isTrue);
-    expect(await b.names(), ['Aria']);
+    final codes = <String>[];
+    await b.service.sync(aPeer, callbacks(a, codesSeen: codes));
+    expect(codes.single, matches(RegExp(r'^\d{6}$')));
   });
 
-  test('three wrong codes end pairing and nothing is saved', () async {
+  test('refusing on the receiving device stops pairing', () async {
     await a.add('Aria');
     await expectLater(
-      b.service.sync(
-        aPeer,
-        callbacks(a, codes: ['111111', '222222', '333333']),
-      ),
+      b.service.sync(aPeer, callbacks(a, allow: false)),
       throwsA(isA<SyncException>()),
     );
     expect(await b.store.peers(), isEmpty);
@@ -166,13 +162,54 @@ void main() {
     expect(await b.names(), isEmpty);
   });
 
-  test('cancelling the code prompt cancels without pairing', () async {
+  test('saying the codes differ cancels without pairing', () async {
     await a.add('Aria');
     await expectLater(
-      b.service.sync(aPeer, callbacks(a, codes: [null])),
+      b.service.sync(aPeer, callbacks(a, codeMatches: false)),
       throwsA(isA<SyncException>()),
     );
     expect(await a.store.peers(), isEmpty);
+    expect(await b.store.peers(), isEmpty);
+  });
+
+  test('repeated failed pairings lock pairing for a while', () async {
+    for (var i = 0; i < 3; i++) {
+      await expectLater(
+        b.service.sync(aPeer, callbacks(a, allow: false)),
+        throwsA(isA<SyncException>()),
+      );
+    }
+    await expectLater(
+      b.service.sync(aPeer, callbacks(a)),
+      throwsA(
+        isA<SyncException>().having(
+          (e) => e.message,
+          'message',
+          contains('Too many'),
+        ),
+      ),
+    );
+    expect(await a.store.peers(), isEmpty);
+  });
+
+  test('a device already in a sync refuses to start another', () async {
+    await a.add('Aria');
+    final slow = SyncCallbacks(
+      confirmCode: (p) async {
+        final shown = a.service.incomingPairing.value!;
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        shown.decide(true);
+        return true;
+      },
+      resolveConflicts: (_) async => {},
+    );
+    final first = b.service.sync(aPeer, slow);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await expectLater(
+      b.service.sync(aPeer, callbacks(a)),
+      throwsA(isA<SyncException>()),
+    );
+    await first;
   });
 
   test('only changed characters move, newest edit wins', () async {
@@ -332,4 +369,118 @@ void main() {
     final out = await b.service.sync(aPeer, callbacks(a));
     expect(out.paired, isTrue);
   });
+
+  test(
+    'a version taken from a conflict is not reverted via a third device',
+    () async {
+      final c = Device('Phone C');
+      addTearDown(c.close);
+      final cPeer = await c.listen();
+      final x = await a.add('Shared');
+      await b.service.sync(aPeer, callbacks(a));
+      await c.service.sync(aPeer, callbacks(a));
+      await c.service.sync(bPeer, callbacks(b));
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+
+      // B edits and syncs with C; A edits offline.
+      await b.repo.save((await b.repo.get(x.id))!.copyWith(notes: 'B'));
+      await b.service.sync(cPeer, callbacks(c));
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await a.repo.save((await a.repo.get(x.id))!.copyWith(notes: 'A'));
+
+      // B settles the A/B conflict with "use theirs", then syncs with C again.
+      await b.service.sync(
+        aPeer,
+        callbacks(
+          a,
+          onConflicts: (cs) => {
+            for (final k in cs) k.id: ConflictChoice.useTheirs,
+          },
+        ),
+      );
+      expect((await b.repo.get(x.id))!.notes, 'A');
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await b.service.sync(cPeer, callbacks(c));
+      expect((await c.repo.get(x.id))!.notes, 'A');
+    },
+  );
+
+  test('applying a synced change always moves the time forward', () async {
+    final x = await a.add('Clock');
+    final before = (await a.repo.syncSummaries()).single.updatedAt;
+    final at = await a.repo.applySynced(x);
+    expect(at, greaterThan(before));
+  });
+
+  test('view settings are per device and never cause a conflict', () async {
+    final x = await a.add('Compact');
+    await b.service.sync(aPeer, callbacks(a));
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await a.repo.save((await a.repo.get(x.id))!.copyWith(compactMode: true));
+    await b.repo.save((await b.repo.get(x.id))!.copyWith(notes: 'real edit'));
+    final seen = <String>[];
+    final out = await b.service.sync(aPeer, callbacks(a, seen: seen));
+    expect(seen, isEmpty);
+    expect(out.sent, 1);
+    final onA = (await a.repo.get(x.id))!;
+    expect(onA.notes, 'real edit');
+    expect(onA.compactMode, isTrue, reason: 'A keeps its own view setting');
+    expect((await b.repo.get(x.id))!.compactMode, isFalse);
+  });
+
+  test(
+    'a legacy id shared by QR becomes the same UUID on both devices',
+    () async {
+      final base = createCharacter(
+        name: 'Shared old',
+        race: 'Elf',
+        className: 'Wizard',
+        level: 1,
+        abilities: standardArray,
+      );
+      final old = Character.fromJson({...base.toJson(), 'id': 'char-424242'});
+      await a.repo.create(old);
+      await b.repo.create(old);
+      await a.repo.assignLegacyIds();
+      await b.repo.assignLegacyIds();
+      final ida = (await a.repo.watchAll().first).single.id;
+      final idb = (await b.repo.watchAll().first).single.id;
+      expect(ida, idb);
+      expect(ida, legacyIdToUuid('char-424242'));
+      await b.service.sync(aPeer, callbacks(a));
+      expect(await a.names(), ['Shared old']);
+      expect(await b.names(), ['Shared old']);
+    },
+  );
+
+  test(
+    'an edit made on the receiving device mid-sync is not overwritten',
+    () async {
+      final x = await a.add('Pushed');
+      final y = await a.add('Contested');
+      await b.service.sync(aPeer, callbacks(a));
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await b.repo.save((await b.repo.get(x.id))!.copyWith(notes: 'from B'));
+      await a.repo.save((await a.repo.get(y.id))!.copyWith(notes: 'A y'));
+      await b.repo.save((await b.repo.get(y.id))!.copyWith(notes: 'B y'));
+
+      // While B's user decides about Contested, A's user edits Pushed.
+      final out = await b.service.sync(
+        aPeer,
+        SyncCallbacks(
+          confirmCode: (_) async => fail('already paired'),
+          resolveConflicts: (cs) async {
+            await a.repo.save(
+              (await a.repo.get(x.id))!.copyWith(notes: 'late A'),
+            );
+            return {for (final c in cs) c.id: ConflictChoice.keepMine};
+          },
+        ),
+      );
+      expect((await a.repo.get(x.id))!.notes, 'late A');
+      expect((await a.repo.get(y.id))!.notes, 'B y');
+      expect(out.skipped, 1);
+      expect(out.sent, 1, reason: 'only Contested went through');
+    },
+  );
 }

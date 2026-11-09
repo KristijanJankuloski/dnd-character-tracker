@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme.dart';
@@ -117,7 +116,7 @@ class _SyncScreenState extends State<SyncScreen> {
       final out = await _service.sync(
         peer,
         SyncCallbacks(
-          askCode: _askCode,
+          confirmCode: _confirmCode,
           resolveConflicts: _askConflicts,
           onStatus: (s) {
             if (mounted) setState(() => _status = s);
@@ -140,13 +139,14 @@ class _SyncScreenState extends State<SyncScreen> {
     }
   }
 
-  Future<String?> _askCode(PairPrompt prompt) {
-    if (!mounted) return Future.value(null);
-    return showDialog<String>(
+  Future<bool> _confirmCode(PairPrompt prompt) async {
+    if (!mounted) return false;
+    final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _CodeDialog(prompt: prompt),
     );
+    return ok ?? false;
   }
 
   Future<Map<String, ConflictChoice>?> _askConflicts(
@@ -351,7 +351,10 @@ class _SyncScreenState extends State<SyncScreen> {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Looking for other devices with this screen open…',
+                'Looking for other devices with this screen open… If '
+                'nothing shows up, check that both are on the same Wi-Fi '
+                'and that this app may use the local network (on iPhone: '
+                'Settings, Privacy, Local Network).',
                 style: TextStyle(color: Palette.textDim),
               ),
             ),
@@ -415,10 +418,14 @@ class _PairingCodePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = pairing.code;
     return Panel(
-      title: 'Pairing with ${pairing.deviceName}',
+      title: 'Pair with ${pairing.deviceName}?',
       child: Column(
         children: [
-          const Text('Type this code on the other device:'),
+          Text(
+            'Device ${pairing.deviceTag}… wants to sync with this one. Only '
+            'allow it if its screen shows the same code:',
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           Semantics(
             label: 'Pairing code ${c.split('').join(' ')}',
@@ -432,11 +439,20 @@ class _PairingCodePanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Only continue if you started this on your own device.',
-            style: TextStyle(color: Palette.textDim),
-            textAlign: TextAlign.center,
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton(
+                onPressed: () => pairing.decide(false),
+                child: const Text('Refuse'),
+              ),
+              const SizedBox(width: 12),
+              FilledButton(
+                onPressed: () => pairing.decide(true),
+                child: const Text('Codes match, allow'),
+              ),
+            ],
           ),
         ],
       ),
@@ -482,6 +498,13 @@ class _OutcomePanel extends StatelessWidget {
             const Text('Everything was already up to date.')
           else
             for (final l in lines) Text(l),
+          if (o.received > 0) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'A character that was replaced can be undone from its history.',
+              style: TextStyle(color: Palette.textDim),
+            ),
+          ],
           if (o.clocksFarApart) ...[
             const SizedBox(height: 8),
             Text(
@@ -498,65 +521,46 @@ class _OutcomePanel extends StatelessWidget {
   }
 }
 
-class _CodeDialog extends StatefulWidget {
+class _CodeDialog extends StatelessWidget {
   const _CodeDialog({required this.prompt});
   final PairPrompt prompt;
 
   @override
-  State<_CodeDialog> createState() => _CodeDialogState();
-}
-
-class _CodeDialogState extends State<_CodeDialog> {
-  final _c = TextEditingController();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final c = prompt.code;
     return AlertDialog(
-      title: Text('Pair with ${widget.prompt.deviceName}'),
+      title: Text('Pair with ${prompt.deviceName}'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Enter the 6-digit code shown on ${widget.prompt.deviceName}.'),
+          Text(
+            '${prompt.deviceName} should show this same code. If it does, '
+            'confirm here and then allow it on that device.',
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _c,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-            style: const TextStyle(fontSize: 28, letterSpacing: 6),
-            decoration: InputDecoration(
-              hintText: '000000',
-              errorText: widget.prompt.wrongCode
-                  ? 'That code was not right. Try again.'
-                  : null,
+          Semantics(
+            label: 'Pairing code ${c.split('').join(' ')}',
+            child: Text(
+              '${c.substring(0, 3)} ${c.substring(3)}',
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 4,
+                color: Palette.gold,
+              ),
             ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (v) {
-              if (v.length == 6) Navigator.pop(context, v);
-            },
           ),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Different, cancel'),
         ),
         FilledButton(
-          onPressed: _c.text.length == 6
-              ? () => Navigator.pop(context, _c.text)
-              : null,
-          child: const Text('Pair'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Same code'),
         ),
       ],
     );
@@ -572,15 +576,8 @@ class _ConflictDialog extends StatefulWidget {
 }
 
 class _ConflictDialogState extends State<_ConflictDialog> {
-  late final Map<String, ConflictChoice> _choice = {
-    for (final c in widget.conflicts)
-      // Defaults that never lose an edit.
-      c.id: c.canKeepBoth
-          ? ConflictChoice.keepBoth
-          : (c.localDeleted
-                ? ConflictChoice.useTheirs
-                : ConflictChoice.keepMine),
-  };
+  // Nothing is preselected: every conflict needs a deliberate choice.
+  final Map<String, ConflictChoice> _choice = {};
 
   String _describe(SyncConflict c) {
     if (c.localDeleted) return 'Deleted here, changed on the other device.';
@@ -648,7 +645,9 @@ class _ConflictDialogState extends State<_ConflictDialog> {
           child: const Text('Cancel sync'),
         ),
         FilledButton(
-          onPressed: () => Navigator.pop(context, Map.of(_choice)),
+          onPressed: _choice.length == widget.conflicts.length
+              ? () => Navigator.pop(context, Map.of(_choice))
+              : null,
           child: const Text('Continue'),
         ),
       ],

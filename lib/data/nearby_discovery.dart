@@ -122,8 +122,11 @@ class NsdPeerDiscovery implements PeerDiscovery {
     );
   }
 
-  static String _clip(String s, int max) =>
-      s.length <= max ? s : s.substring(0, max);
+  /// At most [max] characters, never cutting an emoji in half.
+  static String _clip(String s, int max) {
+    final runes = s.runes.toList();
+    return runes.length <= max ? s : String.fromCharCodes(runes.take(max));
+  }
 
   @override
   Future<void> stop() async {

@@ -74,15 +74,25 @@ class DriftCharacterRepository implements CharacterRepository {
   @override
   Future<void> save(Character c) => _save(c);
 
-  Future<void> _save(Character c) =>
-      (_db.update(_db.characters)..where((t) => t.id.equals(c.id))).write(
-        CharactersCompanion(
-          name: Value(c.name),
-          summary: Value('${c.race} ${c.classLine}'),
-          json: Value(_encode(c)),
-          updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
-        ),
-      );
+  Future<void> _save(Character c) async {
+    final row = await (_db.select(
+      _db.characters,
+    )..where((t) => t.id.equals(c.id))).getSingleOrNull();
+    final json = _encode(c);
+    // A change to a per-device view setting alone is not an edit: it must not
+    // look like a newer version of the character to other devices.
+    final viewOnly = row != null && contentHash(row.json) == contentHash(json);
+    await (_db.update(_db.characters)..where((t) => t.id.equals(c.id))).write(
+      CharactersCompanion(
+        name: Value(c.name),
+        summary: Value('${c.race} ${c.classLine}'),
+        json: Value(json),
+        updatedAt: viewOnly
+            ? const Value.absent()
+            : Value(DateTime.now().millisecondsSinceEpoch),
+      ),
+    );
+  }
 
   @override
   Future<void> apply({
@@ -104,11 +114,15 @@ class DriftCharacterRepository implements CharacterRepository {
             createdAt: DateTime.now().millisecondsSinceEpoch,
           ),
         );
-    // Keep the log bounded.
+    await _trimLog(after.id);
+  });
+
+  /// Keeps the log bounded.
+  Future<void> _trimLog(String characterId) async {
     final count =
         await (_db.selectOnly(_db.logEntries)
               ..addColumns([_db.logEntries.id.count()])
-              ..where(_db.logEntries.characterId.equals(after.id)))
+              ..where(_db.logEntries.characterId.equals(characterId)))
             .map((r) => r.read(_db.logEntries.id.count()) ?? 0)
             .getSingle();
     if (count > _maxLogEntries) {
@@ -116,14 +130,14 @@ class DriftCharacterRepository implements CharacterRepository {
         'DELETE FROM log_entries WHERE character_id = ? AND id IN '
         '(SELECT id FROM log_entries WHERE character_id = ? ORDER BY id ASC LIMIT ?)',
         variables: [
-          Variable.withString(after.id),
-          Variable.withString(after.id),
+          Variable.withString(characterId),
+          Variable.withString(characterId),
           Variable.withInt(count - _maxLogEntries),
         ],
         updates: {_db.logEntries},
       );
     }
-  });
+  }
 
   @override
   Future<void> delete(String id) => _db.transaction(() async {
@@ -262,7 +276,7 @@ class DriftCharacterRepository implements CharacterRepository {
     // Rows are renamed together with their log entries.
     await _db.customStatement('PRAGMA defer_foreign_keys = ON');
     for (final r in legacy) {
-      final newId = const Uuid().v4();
+      final newId = legacyIdToUuid(r.id);
       await (_db.update(_db.characters)..where((t) => t.id.equals(r.id))).write(
         CharactersCompanion(
           id: Value(newId),
@@ -326,21 +340,32 @@ class DriftCharacterRepository implements CharacterRepository {
     return r?.json;
   }
 
-  /// [remote] shifted into this device's clock, never later than now.
-  int _toLocalTime(int remote, int skewMs) {
+  /// A time for a change made now, later than [after] even if the clock has
+  /// not moved (or went backwards) since.
+  int _changeTime(int after) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final t = remote - skewMs;
-    return t > now ? now : t;
+    return now > after ? now : after + 1;
   }
 
   @override
-  Future<int> applySynced(
-    Character c, {
-    required int remoteTime,
-    int skewMs = 0,
-  }) => _db.transaction(() async {
-    final at = _toLocalTime(remoteTime, skewMs);
-    final existing = await get(c.id);
+  Future<int> applySynced(Character incoming) => _db.transaction(() async {
+    final existing = await get(incoming.id);
+    // View settings belong to this device.
+    final c = existing == null
+        ? incoming
+        : incoming.copyWith(compactMode: existing.compactMode);
+    final prev = await (_db.select(
+      _db.characters,
+    )..where((t) => t.id.equals(c.id))).getSingleOrNull();
+    final stone = await (_db.select(
+      _db.tombstones,
+    )..where((t) => t.id.equals(c.id))).getSingleOrNull();
+    final at = _changeTime(
+      [
+        prev?.updatedAt ?? 0,
+        stone?.deletedAt ?? 0,
+      ].reduce((a, b) => a > b ? a : b),
+    );
     await (_db.delete(_db.tombstones)..where((t) => t.id.equals(c.id))).go();
     if (existing == null) {
       await _db
@@ -387,35 +412,40 @@ class DriftCharacterRepository implements CharacterRepository {
               createdAt: DateTime.now().millisecondsSinceEpoch,
             ),
           );
+      await _trimLog(c.id);
     }
     return at;
   });
 
   @override
-  Future<int> applySyncedDelete(
-    String id, {
-    required String name,
-    required int remoteTime,
-    int skewMs = 0,
-  }) => _db.transaction(() async {
-    final at = _toLocalTime(remoteTime, skewMs);
-    final row = await (_db.select(
-      _db.characters,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-    await _db
-        .into(_db.tombstones)
-        .insertOnConflictUpdate(
-          TombstonesCompanion.insert(
-            id: id,
-            name: Value(row?.name ?? name),
-            updatedAt: Value(row?.updatedAt ?? 0),
-            deletedAt: at,
-          ),
+  Future<int> applySyncedDelete(String id, {required String name}) =>
+      _db.transaction(() async {
+        final row = await (_db.select(
+          _db.characters,
+        )..where((t) => t.id.equals(id))).getSingleOrNull();
+        final stone = await (_db.select(
+          _db.tombstones,
+        )..where((t) => t.id.equals(id))).getSingleOrNull();
+        final at = _changeTime(
+          [
+            row?.updatedAt ?? 0,
+            stone?.deletedAt ?? 0,
+          ].reduce((a, b) => a > b ? a : b),
         );
-    await (_db.delete(
-      _db.logEntries,
-    )..where((t) => t.characterId.equals(id))).go();
-    await (_db.delete(_db.characters)..where((t) => t.id.equals(id))).go();
-    return at;
-  });
+        await _db
+            .into(_db.tombstones)
+            .insertOnConflictUpdate(
+              TombstonesCompanion.insert(
+                id: id,
+                name: Value(row?.name ?? name),
+                updatedAt: Value(row?.updatedAt ?? 0),
+                deletedAt: at,
+              ),
+            );
+        await (_db.delete(
+          _db.logEntries,
+        )..where((t) => t.characterId.equals(id))).go();
+        await (_db.delete(_db.characters)..where((t) => t.id.equals(id))).go();
+        return at;
+      });
 }

@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:cryptography/cryptography.dart' as crypto;
 import 'package:flutter/foundation.dart';
 
 import '../domain/models.dart';
@@ -30,38 +31,56 @@ import 'sync_channel.dart';
 
 const _protocolVersion = 1;
 const _maxItems = 1000;
-const _maxPairingAttempts = 3;
+const _maxSummaries = 5000;
+const _pairingWindow = Duration(minutes: 2);
+const _pairingFailuresBeforeLockout = 3;
+const _pairingLockout = Duration(minutes: 1);
 
-/// What the person on the other device has to type.
+/// Shown on the device being paired with: the code both screens must show,
+/// and the choice to let the other device in or not.
 class IncomingPairing {
-  const IncomingPairing({
+  IncomingPairing({
     required this.deviceName,
+    required this.deviceTag,
     required this.code,
     required this.expiresAt,
   });
   final String deviceName;
+
+  /// First characters of the other device's id, so a device pretending to be
+  /// another one by name can be told apart.
+  final String deviceTag;
   final String code;
   final DateTime expiresAt;
+
+  final Completer<bool> _decision = Completer<bool>();
+  Future<bool> get decision => _decision.future;
+
+  /// The user's answer: true lets the other device pair, false refuses.
+  void decide(bool allow) {
+    if (!_decision.isCompleted) _decision.complete(allow);
+  }
 }
 
 /// Asked of the user while pairing from this device.
 class PairPrompt {
-  const PairPrompt({required this.deviceName, required this.wrongCode});
+  const PairPrompt({required this.deviceName, required this.code});
   final String deviceName;
 
-  /// True when the previous attempt was wrong.
-  final bool wrongCode;
+  /// The code this device computed. The other device must show the same one.
+  final String code;
 }
 
 class SyncCallbacks {
   const SyncCallbacks({
-    required this.askCode,
+    required this.confirmCode,
     required this.resolveConflicts,
     this.onStatus,
   });
 
-  /// Returns the code typed in, or null to cancel.
-  final Future<String?> Function(PairPrompt prompt) askCode;
+  /// Shows the code and returns true once the user has checked that the other
+  /// device shows the same one, or false to cancel.
+  final Future<bool> Function(PairPrompt prompt) confirmCode;
 
   /// Returns the choice per conflicting character id, or null to cancel the
   /// sync. Characters left out of the map are skipped.
@@ -156,13 +175,46 @@ class SyncService {
     String idR,
   ) => hmacSha256(key, utf8.encode('$role|$nI|$nR|$idI|$idR'));
 
-  Uint8List _deriveKey(
-    String code,
+  /// X25519 key pair for one pairing.
+  Future<(crypto.SimpleKeyPair, List<int>)> _newKeyPair() async {
+    final kp = await crypto.X25519().newKeyPair();
+    final pub = await kp.extractPublicKey();
+    return (kp, pub.bytes);
+  }
+
+  /// The long-term key and the code to compare on both screens. Both come from
+  /// a Diffie-Hellman secret an eavesdropper can not compute, bound to both
+  /// public keys, so a device in the middle ends up with different keys on
+  /// each side and the two screens show different codes.
+  Future<(Uint8List, String)> _agree(
+    crypto.SimpleKeyPair mine,
+    List<int> theirPub,
     String nI,
     String nR,
     String idI,
     String idR,
-  ) => hmacSha256(utf8.encode(code), utf8.encode('jjct-key|$nI|$nR|$idI|$idR'));
+    List<int> pkI,
+    List<int> pkR,
+  ) async {
+    final secret = await crypto.X25519().sharedSecretKey(
+      keyPair: mine,
+      remotePublicKey: crypto.SimplePublicKey(
+        theirPub,
+        type: crypto.KeyPairType.x25519,
+      ),
+    );
+    final z = await secret.extractBytes();
+    if (z.every((b) => b == 0)) {
+      throw const SyncException('Could not verify the other device.');
+    }
+    final key = hmacSha256(
+      z,
+      utf8.encode('jjct-key|$nI|$nR|$idI|$idR|${_b64(pkI)}|${_b64(pkR)}'),
+    );
+    final n = ByteData.sublistView(hmacSha256(key, utf8.encode('jjct-code')))
+        .getUint32(0);
+    return (key, (n % 1000000).toString().padLeft(6, '0'));
+  }
 
   Uint8List _sessionKey(List<int> key, String nI, String nR) =>
       hmacSha256(key, utf8.encode('jjct-session|$nI|$nR'));
@@ -216,6 +268,10 @@ class SyncService {
       await ch.send({'t': 'error', 'm': 'Not a compatible device.'});
       return false;
     }
+    if (hello['schema'] != syncSchemaVersion) {
+      await ch.send({'t': 'error', 'm': _versionMismatch});
+      return false;
+    }
     final peerName = _cleanName(hello['name']);
     final nR = _nonce();
     final peer = await store.peer(peerId);
@@ -243,69 +299,149 @@ class SyncService {
       ch.enableAuth(_sessionKey(peer.key, nI, nR));
       await ch.send({'t': 'ready'});
     } else {
-      if (!await _pairServer(ch, self, peerId, peerName, nI, nR)) return false;
+      if (!await _pairServer(ch, self, peerId, peerName, hello, nI, nR)) {
+        return false;
+      }
     }
     await _sessionLoop(ch, peerId);
     return true;
   }
 
+  static const _versionMismatch =
+      'The two devices run different versions of the app. Update both to '
+      'the latest version and try again.';
+
   String _cleanName(Object? n) {
     final s = (n is String ? n : '').trim();
     if (s.isEmpty) return 'Another device';
-    return s.length > 60 ? s.substring(0, 60) : s;
+    final runes = s.runes.toList();
+    return runes.length > 60 ? String.fromCharCodes(runes.take(60)) : s;
   }
 
-  String _newCode() => (_random.nextInt(900000) + 100000).toString();
+  int _pairFailures = 0;
+  DateTime? _pairLockedUntil;
 
+  void _pairingFailed() {
+    if (++_pairFailures >= _pairingFailuresBeforeLockout) {
+      _pairFailures = 0;
+      _pairLockedUntil = _clock().add(_pairingLockout);
+    }
+  }
+
+  /// Pairs a device that is not known yet. Both screens show the same code,
+  /// the other user confirms it matches, and this device's user has to allow
+  /// the pairing. Nothing is guessable: an eavesdropper can not compute the
+  /// code, and a device in the middle makes the two codes differ.
   Future<bool> _pairServer(
     SyncChannel ch,
     SyncIdentity self,
     String peerId,
     String peerName,
+    Map<String, Object?> hello,
     String nI,
     String nR,
   ) async {
-    final code = _newCode();
-    incomingPairing.value = IncomingPairing(
-      deviceName: peerName,
-      code: code,
-      expiresAt: _clock().add(const Duration(minutes: 2)),
-    );
-    await ch.send({
-      't': 'unpaired',
-      'id': self.id,
-      'name': self.name,
-      'nonce': nR,
-    });
-    for (var attempt = 0; attempt < _maxPairingAttempts; attempt++) {
-      final msg = await ch.receive(timeout: const Duration(minutes: 2));
-      final key = _deriveKey(code, nI, nR, peerId, self.id);
-      if (msg['t'] == 'pair' &&
-          _proofOk(
-            msg['proof'],
-            _proof(utf8.encode(code), 'pair-I', nI, nR, peerId, self.id),
-          )) {
-        final now = _now;
-        await store.savePeer(
-          SyncPeer(id: peerId, name: peerName, key: key, pairedAt: now),
-        );
-        await ch.send({
-          't': 'paired',
-          'proof': _b64(
-            _proof(utf8.encode(code), 'pair-R', nI, nR, peerId, self.id),
-          ),
-        });
-        ch.enableAuth(_sessionKey(key, nI, nR));
-        incomingPairing.value = null;
-        return true;
-      }
-      if (msg['t'] == 'bye') return false;
+    final locked = _pairLockedUntil;
+    if (locked != null && _clock().isBefore(locked)) {
       await ch.send({
-        't': 'pairFailed',
-        'left': _maxPairingAttempts - attempt - 1,
+        't': 'error',
+        'm': 'Too many pairing attempts. Wait a minute and try again.',
       });
+      return false;
     }
-    return false;
+    final pkI = _decodeKey(hello['pk']);
+    if (pkI == null) {
+      await ch.send({'t': 'error', 'm': 'Not a compatible device.'});
+      return false;
+    }
+    final (kp, pkR) = await _newKeyPair();
+    final (key, code) = await _agree(
+      kp,
+      pkI,
+      nI,
+      nR,
+      peerId,
+      self.id,
+      pkI,
+      pkR,
+    );
+    final expiresAt = _clock().add(_pairingWindow);
+    final pairing = IncomingPairing(
+      deviceName: peerName,
+      deviceTag: peerId.substring(0, 4),
+      code: code,
+      expiresAt: expiresAt,
+    );
+    incomingPairing.value = pairing;
+    var ok = false;
+    try {
+      await ch.send({
+        't': 'unpaired',
+        'id': self.id,
+        'name': self.name,
+        'nonce': nR,
+        'pk': _b64(pkR),
+      });
+      Duration left() => expiresAt.difference(_clock());
+      // Waits for the other user to confirm the code, or for this user to
+      // refuse, whichever comes first.
+      final denied = pairing.decision.then<Map<String, Object?>?>(
+        (allow) => allow ? Completer<Map<String, Object?>?>().future : null,
+      );
+      final msg = await Future.any<Map<String, Object?>?>([
+        ch.receive(timeout: left()),
+        denied,
+      ]);
+      if (msg == null) {
+        await ch.send({'t': 'error', 'm': 'The other device refused.'});
+        return false;
+      }
+      if (msg['t'] != 'confirm' ||
+          !_proofOk(
+            msg['proof'],
+            _proof(key, 'pair-I', nI, nR, peerId, self.id),
+          )) {
+        return false;
+      }
+      final allowed = await pairing.decision.timeout(
+        left(),
+        onTimeout: () => false,
+      );
+      if (!allowed) {
+        await ch.send({'t': 'error', 'm': 'The other device refused.'});
+        return false;
+      }
+      await store.savePeer(
+        SyncPeer(id: peerId, name: peerName, key: key, pairedAt: _now),
+      );
+      await ch.send({
+        't': 'paired',
+        'proof': _b64(_proof(key, 'pair-R', nI, nR, peerId, self.id)),
+      });
+      ch.enableAuth(_sessionKey(key, nI, nR));
+      ok = true;
+      return true;
+    } finally {
+      pairing.decide(false);
+      if (identical(incomingPairing.value, pairing)) {
+        incomingPairing.value = null;
+      }
+      if (ok) {
+        _pairFailures = 0;
+      } else {
+        _pairingFailed();
+      }
+    }
+  }
+
+  List<int>? _decodeKey(Object? o) {
+    if (o is! String) return null;
+    try {
+      final b = base64Decode(o);
+      return b.length == 32 ? b : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   Future<void> _sessionLoop(SyncChannel ch, String peerId) async {
@@ -372,26 +508,27 @@ class SyncService {
   }
 
   Future<Map<String, Object?>> _servePut(Map<String, Object?> msg) async {
-    // The initiator measured how far our clock is ahead of its own.
-    final offset = (msg['offset'] as num?)?.toInt() ?? 0;
     final applied = <Map<String, Object?>>[];
+    // Only change what is still as the initiator saw it when it planned; an
+    // edit made here since then is left alone and reported back.
+    final current = {for (final s in await repository.syncSummaries()) s.id: s};
+    bool unchanged(String id, Object? expected) =>
+        current[id]?.time == (expected is int ? expected : null);
+    final skipped = <String>[];
     final items = msg['items'];
     if (items is List && items.length <= _maxItems) {
       for (final e in items) {
         if (e is! Map) continue;
-        final id = e['id'], u = e['u'], json = e['json'];
-        if (id is! String || !isSyncId(id) || u is! int || json is! String) {
+        final id = e['id'], json = e['json'];
+        if (id is! String || !isSyncId(id) || json is! String) continue;
+        if (!unchanged(id, e['et'])) {
+          skipped.add(id);
           continue;
         }
         try {
           final c = decodeCharacterJson(json);
           if (c.id != id) continue;
-          final at = await repository.applySynced(
-            c,
-            remoteTime: u,
-            skewMs: -offset,
-          );
-          applied.add({'id': id, 't': at});
+          applied.add({'id': id, 't': await repository.applySynced(c)});
         } on FormatException {
           continue;
         }
@@ -401,18 +538,20 @@ class SyncService {
     if (deletes is List && deletes.length <= _maxItems) {
       for (final e in deletes) {
         if (e is! Map) continue;
-        final id = e['id'], d = e['d'], n = e['n'];
-        if (id is! String || !isSyncId(id) || d is! int) continue;
+        final id = e['id'], n = e['n'];
+        if (id is! String || !isSyncId(id)) continue;
+        if (!unchanged(id, e['et'])) {
+          skipped.add(id);
+          continue;
+        }
         final at = await repository.applySyncedDelete(
           id,
           name: n is String ? n : '',
-          remoteTime: d,
-          skewMs: -offset,
         );
         applied.add({'id': id, 't': at});
       }
     }
-    return {'t': 'applied', 'items': applied};
+    return {'t': 'applied', 'items': applied, 'skipped': skipped};
   }
 
   // ---------------------------------------------------------------- client
@@ -423,17 +562,32 @@ class SyncService {
     SyncCallbacks callbacks, {
     Duration connectTimeout = const Duration(seconds: 5),
   }) async {
-    final self = await store.identity();
-    await repository.assignLegacyIds();
-    callbacks.onStatus?.call('Connecting to ${peer.name}');
-    final socket = await _connect(peer, connectTimeout);
-    final ch = SyncChannel(socket, isInitiator: true);
+    // One session at a time, whichever device started it, so two sessions
+    // never work on the same characters together.
+    if (_busy) {
+      throw const SyncException(
+        'This device is already syncing. Try again in a moment.',
+      );
+    }
+    _busy = true;
+    SyncChannel? ch;
     try {
+      final self = await store.identity();
+      await repository.assignLegacyIds();
+      callbacks.onStatus?.call('Connecting to ${peer.name}');
+      final socket = await _connect(peer, connectTimeout);
+      ch = SyncChannel(socket, isInitiator: true);
       return await _run(ch, self, peer, callbacks);
     } on SocketException {
       throw const SyncException('Lost the connection to the other device.');
+    } on FormatException {
+      throw const SyncException(
+        'The other device sent something this app cannot read. Make sure '
+        'both have the latest version.',
+      );
     } finally {
-      await ch.close();
+      _busy = false;
+      await ch?.close();
     }
   }
 
@@ -459,13 +613,16 @@ class SyncService {
   ) async {
     final known = await store.peer(peer.id);
     final nI = _nonce();
+    final (kp, pkI) = await _newKeyPair();
     await ch.send({
       't': 'hello',
       'v': _protocolVersion,
+      'schema': syncSchemaVersion,
       'id': self.id,
       'name': self.name,
       'nonce': nI,
       'paired': known != null,
+      'pk': _b64(pkI),
     });
     final first = await ch.receive();
     var peerName = known?.name ?? peer.name;
@@ -500,7 +657,7 @@ class SyncService {
           throw const SyncException('Could not verify the other device.');
         }
         peerName = _cleanName(first['name']);
-        await _pairClient(ch, self, peer, peerName, nI, nR, cb);
+        await _pairClient(ch, self, peer, peerName, first, kp, pkI, nI, nR, cb);
         paired = true;
       default:
         throw SyncException(_errorText(first));
@@ -518,7 +675,13 @@ class SyncService {
     final offset = remoteNow - ((t0 + t1) ~/ 2);
     final remote = <String, SyncSummary>{};
     final rawItems = reply['items'];
-    if (rawItems is List && rawItems.length <= _maxItems) {
+    if (rawItems is List) {
+      if (rawItems.length > _maxSummaries) {
+        // Never treat a list that is too long as an empty one.
+        throw const SyncException(
+          'The other device has too many characters to sync.',
+        );
+      }
       for (final e in rawItems) {
         final s = SyncSummary.tryFromJson(e);
         if (s != null) remote[s.id] = s;
@@ -553,6 +716,7 @@ class SyncService {
     };
 
     var received = 0, sent = 0, deletedHere = 0, deletedThere = 0, copies = 0;
+    var staleSkipped = 0;
 
     // Fetch what is newer over there.
     final pulls = items
@@ -589,23 +753,19 @@ class SyncService {
           continue;
         }
         final r = remote[item.id]!;
-        final at = await repository.applySynced(
-          c,
-          remoteTime: r.updatedAt,
-          skewMs: offset,
+        final at = await repository.applySynced(c);
+        // The copy we got may be newer than its summary was.
+        final u = e?['u'];
+        newBases[item.id] = SyncBase(
+          localTime: at,
+          remoteTime: u is int ? u : r.time,
         );
-        newBases[item.id] = SyncBase(localTime: at, remoteTime: r.time);
         received++;
       }
     }
     for (final item in items.where((i) => i.step == SyncStep.pullDelete)) {
       final r = remote[item.id]!;
-      final at = await repository.applySyncedDelete(
-        item.id,
-        name: r.name,
-        remoteTime: r.deletedAt!,
-        skewMs: offset,
-      );
+      final at = await repository.applySyncedDelete(item.id, name: r.name);
       newBases[item.id] = SyncBase(localTime: at, remoteTime: r.time);
       deletedHere++;
     }
@@ -620,23 +780,20 @@ class SyncService {
       if (item.step == SyncStep.pushCharacter) {
         final json = await repository.exportForSync(item.id);
         if (json == null) continue;
-        puts.add({'id': item.id, 'u': l.updatedAt, 'json': json});
+        puts.add({'id': item.id, 'json': json, 'et': remote[item.id]?.time});
         sentTimes[item.id] = l.time;
       } else if (item.step == SyncStep.pushDelete) {
-        deletes.add({'id': item.id, 'n': l.name, 'd': l.deletedAt});
+        deletes.add({'id': item.id, 'n': l.name, 'et': remote[item.id]?.time});
         sentTimes[item.id] = l.time;
       }
     }
     if (puts.isNotEmpty || deletes.isNotEmpty) {
       cb.onStatus?.call('Sending ${puts.length + deletes.length} change(s)');
-      await ch.send({
-        't': 'put',
-        'offset': offset,
-        'items': puts,
-        'deletes': deletes,
-      });
+      await ch.send({'t': 'put', 'items': puts, 'deletes': deletes});
       final ack = await ch.receive(timeout: const Duration(minutes: 2));
       if (ack['t'] != 'applied') throw SyncException(_errorText(ack));
+      final stale = ack['skipped'];
+      if (stale is List) staleSkipped = stale.length;
       final done = ack['items'];
       if (done is List) {
         for (final e in done) {
@@ -664,7 +821,7 @@ class SyncService {
       deletedHere: deletedHere,
       deletedThere: deletedThere,
       copies: copies,
-      skipped: skipped,
+      skipped: skipped + staleSkipped,
       clockOffset: Duration(milliseconds: offset),
       paired: paired,
     );
@@ -675,47 +832,49 @@ class SyncService {
     SyncIdentity self,
     NearbyPeer peer,
     String peerName,
+    Map<String, Object?> unpaired,
+    crypto.SimpleKeyPair kp,
+    List<int> pkI,
     String nI,
     String nR,
     SyncCallbacks cb,
   ) async {
-    var wrong = false;
-    for (var attempt = 0; attempt < _maxPairingAttempts; attempt++) {
-      final code = await cb.askCode(
-        PairPrompt(deviceName: peerName, wrongCode: wrong),
-      );
-      if (code == null) {
-        await _bye(ch, wait: false);
-        throw const SyncException('Pairing cancelled.');
-      }
-      final digits = code.replaceAll(RegExp(r'\D'), '');
-      await ch.send({
-        't': 'pair',
-        'proof': _b64(
-          _proof(utf8.encode(digits), 'pair-I', nI, nR, self.id, peer.id),
-        ),
-      });
-      final r = await ch.receive();
-      if (r['t'] == 'paired') {
-        if (!_proofOk(
-          r['proof'],
-          _proof(utf8.encode(digits), 'pair-R', nI, nR, self.id, peer.id),
-        )) {
-          throw const SyncException('Could not verify the other device.');
-        }
-        final key = _deriveKey(digits, nI, nR, self.id, peer.id);
-        await store.savePeer(
-          SyncPeer(id: peer.id, name: peerName, key: key, pairedAt: _now),
-        );
-        ch.enableAuth(_sessionKey(key, nI, nR));
-        return;
-      }
-      if (r['t'] != 'pairFailed') throw SyncException(_errorText(r));
-      wrong = true;
-    }
-    throw const SyncException(
-      'The code was wrong too many times. Start again to get a new code.',
+    final pkR = _decodeKey(unpaired['pk']);
+    if (pkR == null) throw const SyncException('Not a compatible device.');
+    final (key, code) = await _agree(
+      kp,
+      pkR,
+      nI,
+      nR,
+      self.id,
+      peer.id,
+      pkI,
+      pkR,
     );
+    final matches = await cb.confirmCode(
+      PairPrompt(deviceName: peerName, code: code),
+    );
+    if (!matches) {
+      await _bye(ch, wait: false);
+      throw const SyncException('Pairing cancelled.');
+    }
+    await ch.send({
+      't': 'confirm',
+      'proof': _b64(_proof(key, 'pair-I', nI, nR, self.id, peer.id)),
+    });
+    cb.onStatus?.call('Waiting for ${peer.name} to allow pairing');
+    final r = await ch.receive(timeout: _pairingWindow);
+    if (r['t'] != 'paired') throw SyncException(_errorText(r));
+    if (!_proofOk(
+      r['proof'],
+      _proof(key, 'pair-R', nI, nR, self.id, peer.id),
+    )) {
+      throw const SyncException('Could not verify the other device.');
+    }
+    await store.savePeer(
+      SyncPeer(id: peer.id, name: peerName, key: key, pairedAt: _now),
+    );
+    ch.enableAuth(_sessionKey(key, nI, nR));
   }
 
   Future<void> _bye(

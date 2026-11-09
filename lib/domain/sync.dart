@@ -21,10 +21,41 @@ const clockWarnThreshold = Duration(minutes: 5);
 
 bool isSyncId(String id) => Uuid.isValidUUID(fromString: id);
 
+/// Version of the character format both devices must share to sync.
+const syncSchemaVersion = 1;
+
+/// Settings that belong to one device and are neither synced nor part of the
+/// fingerprint, so flipping them never counts as an edit worth a conflict.
+const deviceOnlyFields = ['compactMode'];
+
 /// Short fingerprint of a character's saved JSON. Equal fingerprints mean
-/// identical content, whatever the timestamps say.
-String contentHash(String json) =>
-    sha256.convert(utf8.encode(json)).toString().substring(0, 16);
+/// identical content, whatever the timestamps say. Device-only view settings
+/// are left out.
+String contentHash(String json) {
+  var text = json;
+  try {
+    final decoded = jsonDecode(json);
+    if (decoded is Map) {
+      text = jsonEncode({
+        for (final e in decoded.entries)
+          if (!deviceOnlyFields.contains(e.key)) e.key: e.value,
+      });
+    }
+  } on FormatException {
+    // hash the text as it is
+  }
+  return sha256.convert(utf8.encode(text)).toString().substring(0, 16);
+}
+
+/// Namespace for deriving the same UUID from the same legacy id on every
+/// device (see [legacyIdToUuid]).
+const _legacyNamespace = 'b7c1f4a2-6e1d-4c58-9f0a-3d2e8a5c7b19';
+
+/// The UUID a legacy `char-…` id becomes. Derived from the old id, so a
+/// character that was shared by QR before syncing existed gets the same new id
+/// on both devices and the two copies stay one character.
+String legacyIdToUuid(String legacyId) =>
+    const Uuid().v5(_legacyNamespace, legacyId);
 
 /// One character or tombstone as one device sees it.
 class SyncSummary {
