@@ -317,6 +317,12 @@ class DeathSavesPanel extends StatelessWidget {
                   onPressed: () => bloc.add(const DeathSaveRecorded('nat1')),
                   child: const Text('Natural 1'),
                 ),
+                OutlinedButton(
+                  onPressed: c.deathSuccesses == 0 && c.deathFailures == 0
+                      ? null
+                      : () => bloc.add(const DeathSavesReset()),
+                  child: const Text('Reset'),
+                ),
                 TextButton(
                   onPressed: () async {
                     if (await confirm(

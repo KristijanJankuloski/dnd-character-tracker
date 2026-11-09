@@ -311,6 +311,27 @@ class SkillProficiencyCycled extends CharacterAction {
   act.ActionResult run(Character c) => act.setSkill(c, skill);
 }
 
+class SaveProficiencyToggled extends CharacterAction {
+  const SaveProficiencyToggled(this.ability);
+  final Ability ability;
+  @override
+  act.ActionResult run(Character c) => act.toggleSaveProficiency(c, ability);
+}
+
+class SaveBonusSet extends CharacterAction {
+  const SaveBonusSet(this.ability, this.bonus);
+  final Ability ability;
+  final int bonus;
+  @override
+  act.ActionResult run(Character c) => act.setSaveBonus(c, ability, bonus);
+}
+
+class DeathSavesReset extends CharacterAction {
+  const DeathSavesReset();
+  @override
+  act.ActionResult run(Character c) => act.resetDeathSaves(c);
+}
+
 class SkillAdvantageCycled extends CharacterAction {
   const SkillAdvantageCycled(this.skill);
   final Skill skill;
