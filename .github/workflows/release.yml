@@ -1,0 +1,99 @@
+name: Release
+
+# Runs on every push/merge to master. Builds a release APK, tags it with an
+# auto-bumped patch version and publishes it as a GitHub release.
+# Minor/major bumps are manual: edit `version:` in pubspec.yaml.
+on:
+  push:
+    branches: [master]
+
+# One release at a time so version computation never races.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need all tags
+
+      - name: Compute version
+        id: version
+        run: |
+          # pubspec: X.Y.Z+N  (only X.Y and N are used as inputs)
+          full=$(grep -E '^version:' pubspec.yaml | head -1 | awk '{print $2}')
+          base=${full%%+*}
+          pub_build=${full#*+}; [ "$pub_build" = "$full" ] && pub_build=0
+          mm=${base%.*}   # major.minor from pubspec
+
+          # Highest existing tag for this major.minor (ignores other lines)
+          last=$(git tag -l "v${mm}.*" | sed 's/^v//' | sort -V | tail -1)
+          if [ -z "$last" ]; then
+            # New major.minor (manual bump, or first release): patch resets to 0
+            patch=0
+          else
+            patch=$(( ${last##*.} + 1 ))
+          fi
+          name="${mm}.${patch}"
+
+          # Build number must always increase: pubspec build + number of releases so far
+          count=$(git tag -l 'v*' | wc -l)
+          build=$(( pub_build + count ))
+
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$name (build $build)"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Set up release signing (optional)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret; APK will be debug-signed (not updatable across releases)."
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+          cat > android/key.properties <<PROPS
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          PROPS
+
+      - name: Build APK
+        run: >
+          flutter build apk --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ steps.version.outputs.build }}
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v${{ steps.version.outputs.name }}"
+          cp build/app/outputs/flutter-apk/app-release.apk "character-tracker-$v.apk"
+          gh release create "$v" "character-tracker-$v.apk" \
+            --target "$GITHUB_SHA" --title "$v" --generate-notes
