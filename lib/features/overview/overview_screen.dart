@@ -57,10 +57,8 @@ class OverviewScreen extends StatelessWidget {
       const SizedBox(height: 12),
       _CoreNumbers(state: s),
       const SizedBox(height: 12),
-      if (c.hpCurrent == 0 || c.dead) ...[
-        DeathSavesPanel(character: c),
-        const SizedBox(height: 12),
-      ],
+      DeathSavesPanel(character: c),
+      const SizedBox(height: 12),
       Panel(
         title: 'Hit dice & inspiration',
         child: Column(

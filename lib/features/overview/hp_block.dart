@@ -248,7 +248,7 @@ class _HpPadState extends State<_HpPad> {
   }
 }
 
-/// Death saves appear only at 0 HP.
+/// Death saves are always shown so they can be tracked at any HP.
 class DeathSavesPanel extends StatelessWidget {
   const DeathSavesPanel({super.key, required this.character});
   final Character character;
