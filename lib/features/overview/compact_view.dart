@@ -51,7 +51,7 @@ class CompactView extends StatelessWidget {
             ],
           ),
           HpBlock(state: s, compact: true),
-          if (c.hpCurrent == 0 || c.dead) DeathSavesPanel(character: c),
+          DeathSavesPanel(character: c),
           ConditionsPanel(character: c),
           TurnTracker(state: s),
           Panel(
