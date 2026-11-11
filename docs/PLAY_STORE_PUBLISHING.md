@@ -80,9 +80,12 @@ Main store listing → fill in:
 
 ## 6. Privacy policy 👤
 
-Required because the app uses the CAMERA permission. Host a public HTTPS page (GitHub Pages works: e.g. `docs/privacy.md` served from the repo) and paste the URL in **App content → Privacy policy**.
+Required because the app uses the CAMERA permission. The repo contains the page (`privacy-policy/index.html`) and a workflow (`.github/workflows/pages.yml`) that publishes only that folder to GitHub Pages.
 
-Suggested content: the app stores characters locally on the device; no accounts, no analytics, no servers; the camera is used only to scan sync QR codes and images are not stored or sent; LAN sync sends character data directly between the user's own devices on the local network; contact email.
+1. 👤 Edit `privacy-policy/index.html` and replace `REPLACE_WITH_CONTACT_EMAIL`.
+2. 👤 GitHub repo → Settings → Pages → **Source: GitHub Actions** (one time; Pages on a private repo needs a paid plan, otherwise make the repo public).
+3. Push to `master`; the URL is `https://kristijanjankuloski.github.io/dnd-character-tracker/`.
+4. 👤 Paste that URL in **App content → Privacy policy**.
 
 ## 7. App content declarations 👤
 
