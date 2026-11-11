@@ -3,7 +3,7 @@ name: Release
 # Runs on every push/merge to master. Builds a release APK, tags it with an
 # auto-bumped patch version and publishes it as a GitHub release. When the
 # Google Play secrets are configured it also builds a signed AAB and uploads it
-# to Google Play (see docs/PLAY_STORE_PUBLISHING.md).
+# to Google Play.
 # Minor/major bumps are manual: edit `version:` in pubspec.yaml.
 on:
   push:
