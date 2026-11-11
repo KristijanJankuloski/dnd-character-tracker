@@ -1,7 +1,9 @@
 name: Release
 
 # Runs on every push/merge to master. Builds a release APK, tags it with an
-# auto-bumped patch version and publishes it as a GitHub release.
+# auto-bumped patch version and publishes it as a GitHub release. When the
+# Google Play secrets are configured it also builds a signed AAB and uploads it
+# to Google Play (see docs/PLAY_STORE_PUBLISHING.md).
 # Minor/major bumps are manual: edit `version:` in pubspec.yaml.
 on:
   push:
@@ -18,6 +20,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      # Play upload only runs when both the service account and keystore exist.
+      PLAY_ENABLED: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' && secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,6 +94,13 @@ jobs:
           --build-name=${{ steps.version.outputs.name }}
           --build-number=${{ steps.version.outputs.build }}
 
+      - name: Build AAB (Google Play)
+        if: env.PLAY_ENABLED == 'true'
+        run: >
+          flutter build appbundle --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ steps.version.outputs.build }}
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -97,3 +109,19 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk "character-tracker-$v.apk"
           gh release create "$v" "character-tracker-$v.apk" \
             --target "$GITHUB_SHA" --title "$v" --generate-notes
+
+      # Runs after the GitHub release so a Play failure never blocks the APK.
+      # Track defaults to "internal"; override with repo variable PLAY_TRACK
+      # (internal | alpha (closed testing) | beta | production).
+      # Set repo variable PLAY_RELEASE_STATUS=draft while the app is still in
+      # draft state in Play Console (before the first release is rolled out).
+      - name: Upload to Google Play
+        if: env.PLAY_ENABLED == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: dev.jjs.charactertracker
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ vars.PLAY_TRACK || 'internal' }}
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
+          releaseName: v${{ steps.version.outputs.name }}
