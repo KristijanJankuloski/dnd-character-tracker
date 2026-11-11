@@ -1,6 +1,6 @@
 # Publishing to Google Play
 
-Step-by-step setup for publishing JJs Character Tracker (`dev.jjs.charactertracker`) to Google Play, ending with automatic uploads from the `Release` workflow on every push to `master`.
+Step-by-step setup for publishing JJs Character Tracker (`dev.kristijanj.charactertracker`) to Google Play, ending with automatic uploads from the `Release` workflow on every push to `master`.
 
 Legend: 👤 = only the account owner can do this (Play Console / Google account / GitHub secrets). 🤖 = already done in the repo.
 
@@ -8,7 +8,7 @@ Legend: 👤 = only the account owner can do this (Play Console / Google account
 
 ## 0. Current state of the repo 🤖
 
-- `applicationId` / `namespace`: `dev.jjs.charactertracker` (`android/app/build.gradle.kts`). **This is permanent once uploaded to Play.** If you want a different ID, change it before step 4.
+- `applicationId` / `namespace`: `dev.kristijanj.charactertracker` (`android/app/build.gradle.kts`). **This is permanent once uploaded to Play.**
 - Release signing reads `android/key.properties`, which CI writes from the `ANDROID_KEYSTORE_*` secrets.
 - `release.yml` builds the APK + GitHub release, and (when secrets exist) builds an AAB and uploads it to Play.
 - `versionCode` = `pubspec build number + number of existing v* tags`, always increasing. `versionName` = auto-bumped `X.Y.Z`.

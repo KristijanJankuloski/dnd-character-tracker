@@ -1,4 +1,4 @@
-package dev.jjs.charactertracker
+package dev.kristijanj.charactertracker
 
 import io.flutter.embedding.android.FlutterActivity
 
