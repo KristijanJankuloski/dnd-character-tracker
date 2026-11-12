@@ -1,13 +1,15 @@
 name: Release
 
-# Runs on every push/merge to master. Builds a release APK, tags it with an
-# auto-bumped patch version and publishes it as a GitHub release. When the
-# Google Play secrets are configured it also builds a signed AAB and uploads it
-# to Google Play.
+# Manual only: run it from the Actions tab (Run workflow) on master. Builds a
+# release APK, tags it with an auto-bumped patch version and publishes it as a
+# GitHub release. When the Google Play secrets are configured it also builds a
+# signed AAB and uploads it to Google Play.
 # Minor/major bumps are manual: edit `version:` in pubspec.yaml.
+#
+# Only the repo owner can run it (the job is skipped for anyone else). For a
+# stronger guard, put the job behind an environment with required reviewers.
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 # One release at a time so version computation never races.
 concurrency:
@@ -19,6 +21,7 @@ permissions:
 
 jobs:
   release:
+    if: github.actor == 'KristijanJankuloski'
     runs-on: ubuntu-latest
     env:
       # Play upload only runs when both the service account and keystore exist.
