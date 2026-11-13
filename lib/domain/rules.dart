@@ -556,6 +556,8 @@ CharacterStats resolveStats(Character c) {
       for (final e in effects)
         if (e.target == StatTarget.note && e.note.isNotEmpty)
           (e.source, e.note),
+      for (final f in c.features)
+        if (f.pinned.trim().isNotEmpty) (f.name, f.pinned.trim()),
     ],
     changedScores: changed,
   );
