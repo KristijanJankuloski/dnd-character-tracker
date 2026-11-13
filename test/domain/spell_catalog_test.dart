@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:jjs_character_tracker/domain/spell_catalog.dart';
@@ -26,6 +27,14 @@ void main() {
     );
     expect(list, hasLength(1));
     expect(list.single.school, 'Evocation');
+  });
+
+  testWidgets('the app startup path loads the registered asset', (
+    tester,
+  ) async {
+    resetSpellCatalogForTests();
+    await tester.runAsync(() => loadSpellCatalog(rootBundle));
+    expect(srdSpells, hasLength(319));
   });
 
   group('bundled catalog', () {
