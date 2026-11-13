@@ -45,6 +45,7 @@ Everything is local to the device (Drift/SQLite). There is no dice roller, no ac
 - Known-spell and cantrip limits from the class tables (warn, never block). Ritual casting only for classes that can. Prepared casters add leveled spells unprepared.
 - Death is never decided automatically by massive damage: there is a "Mark as dead" button and a Dismiss button.
 - Casting a second concentration spell asks first. Incapacitating conditions end concentration.
+- Traits (species, background, subclass, other) are typed in by hand at creation and on the Combat screen's "Features & traits" panel. A trait can carry a short pinned label (e.g. "Fire resistance") that shows in the Sheet's "Senses & resistances" panel. Pinning is a label only and changes no numbers.
 
 ## Left out of the MVP
 

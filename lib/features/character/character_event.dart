@@ -354,6 +354,28 @@ class MetamagicSet extends CharacterAction {
   act.ActionResult run(Character c) => act.setMetamagic(c, chosen);
 }
 
+class FeatureAdded extends CharacterAction {
+  const FeatureAdded(this.feature);
+  final Feature feature;
+  @override
+  act.ActionResult run(Character c) => act.addFeature(c, feature);
+}
+
+class FeatureEdited extends CharacterAction {
+  const FeatureEdited(this.index, this.feature);
+  final int index;
+  final Feature feature;
+  @override
+  act.ActionResult run(Character c) => act.editFeature(c, index, feature);
+}
+
+class FeatureRemoved extends CharacterAction {
+  const FeatureRemoved(this.index);
+  final int index;
+  @override
+  act.ActionResult run(Character c) => act.removeFeature(c, index);
+}
+
 class NotesChanged extends CharacterAction {
   const NotesChanged(this.notes);
   final String notes;

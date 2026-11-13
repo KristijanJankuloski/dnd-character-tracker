@@ -22,7 +22,8 @@ const clockWarnThreshold = Duration(minutes: 5);
 bool isSyncId(String id) => Uuid.isValidUUID(fromString: id);
 
 /// Version of the character format both devices must share to sync.
-const syncSchemaVersion = 1;
+/// 2: features carry a source and a pinned label (traits).
+const syncSchemaVersion = 2;
 
 /// Settings that belong to one device and are neither synced nor part of the
 /// fingerprint, so flipping them never counts as an edit worth a conflict.

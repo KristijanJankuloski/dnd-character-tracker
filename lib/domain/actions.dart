@@ -1061,6 +1061,62 @@ ActionResult setMetamagic(Character c, Set<String> chosen) {
   );
 }
 
+// ---------------------------------------------------------------- Traits
+
+const _missingTrait = 'That trait no longer exists.';
+
+/// Trims [f]. Returns the cleaned feature, or the reason it was refused.
+(Feature?, String?) _cleanFeature(Feature f) {
+  final problem = traitProblem(f);
+  if (problem != null) return (null, problem);
+  return (f.copyWith(name: f.name.trim(), pinned: f.pinned.trim()), null);
+}
+
+bool _validFeatureIndex(Character c, int index) =>
+    index >= 0 && index < c.features.length;
+
+bool _isMetamagic(Feature f) => f.name == metamagicFeatureName;
+
+ActionResult addFeature(Character c, Feature f) {
+  final (clean, problem) = _cleanFeature(f);
+  if (clean == null) return ActionResult.blocked(c, problem!);
+  return ActionResult(
+    c.copyWith(features: [...c.features, clean]),
+    'Added trait: ${clean.name}',
+  );
+}
+
+/// Features are addressed by list index; sync and share move the whole
+/// character, so no id is needed.
+ActionResult editFeature(Character c, int index, Feature f) {
+  if (!_validFeatureIndex(c, index)) {
+    return ActionResult.blocked(c, _missingTrait);
+  }
+  if (_isMetamagic(c.features[index])) {
+    return ActionResult.blocked(c, metamagicFeatureMessage);
+  }
+  final (clean, problem) = _cleanFeature(f);
+  if (clean == null) return ActionResult.blocked(c, problem!);
+  final features = [...c.features];
+  features[index] = clean;
+  return ActionResult(
+    c.copyWith(features: features),
+    'Edited trait: ${clean.name}',
+  );
+}
+
+ActionResult removeFeature(Character c, int index) {
+  if (!_validFeatureIndex(c, index)) {
+    return ActionResult.blocked(c, _missingTrait);
+  }
+  final f = c.features[index];
+  if (_isMetamagic(f)) return ActionResult.blocked(c, metamagicFeatureMessage);
+  return ActionResult(
+    c.copyWith(features: [...c.features]..removeAt(index)),
+    'Removed trait: ${f.name}',
+  );
+}
+
 ActionResult setSkill(Character c, Skill skill) {
   final cur = c.skills[skill] ?? Proficiency.none;
   final next = Proficiency.values[(cur.index + 1) % Proficiency.values.length];
@@ -1164,9 +1220,14 @@ ActionResult levelUp(Character c, String className, {String subclass = ''}) {
     if (resources.any((r) => r.id == rt.id)) continue;
     resources.add(rt.build(className, (r) => maxOf(out, r)));
   }
+  // Class features are only granted when the class is first taken. Adding
+  // them again on later levels would undo features the player edited or
+  // deleted.
   final features = [...c.features];
-  for (final f in template.features) {
-    if (!features.any((x) => x.name == f.name)) features.add(f);
+  if (existing == null) {
+    for (final f in template.features) {
+      if (!features.any((x) => x.name == f.name)) features.add(f);
+    }
   }
   out = out.copyWith(resources: resources, features: features);
 

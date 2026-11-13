@@ -872,13 +872,78 @@ class TurnState {
   );
 }
 
+/// Where a feature or trait comes from.
+enum FeatureSource {
+  classFeature('Class'),
+  species('Species'),
+  background('Background'),
+  subclass('Subclass'),
+  other('Other');
+
+  const FeatureSource(this.label);
+  final String label;
+}
+
 class Feature {
-  const Feature(this.name, this.text);
+  const Feature(
+    this.name,
+    this.text, {
+    this.source = FeatureSource.classFeature,
+    this.pinned = '',
+  });
   final String name;
   final String text;
-  Map<String, Object?> toJson() => {'name': name, 'text': text};
-  factory Feature.fromJson(Map<String, Object?> j) =>
-      Feature(j['name'] as String, (j['text'] as String?) ?? '');
+  final FeatureSource source;
+
+  /// A short label (e.g. "Fire resistance") shown in the Overview's
+  /// "Senses & resistances" panel. Empty means not pinned.
+  final String pinned;
+
+  Feature copyWith({
+    String? name,
+    String? text,
+    FeatureSource? source,
+    String? pinned,
+  }) => Feature(
+    name ?? this.name,
+    text ?? this.text,
+    source: source ?? this.source,
+    pinned: pinned ?? this.pinned,
+  );
+
+  Map<String, Object?> toJson() => {
+    'name': name,
+    'text': text,
+    'source': source.name,
+    'pinned': pinned,
+  };
+  factory Feature.fromJson(Map<String, Object?> j) => Feature(
+    j['name'] as String,
+    (j['text'] as String?) ?? '',
+    source: _enum(
+      FeatureSource.values,
+      j['source'],
+      FeatureSource.classFeature,
+    ),
+    pinned: (j['pinned'] as String?) ?? '',
+  );
+}
+
+/// Name of the built-in Sorcerer Metamagic entry (it has its own picker).
+const metamagicFeatureName = 'Metamagic';
+const metamagicFeatureMessage =
+    'Metamagic is a built-in feature; use its Choose button.';
+const traitNeedsNameMessage = 'Give the trait a name.';
+
+/// Why [f] can't be saved as a hand-typed trait, or null when it can. One
+/// rule for the editor, the actions and character creation.
+String? traitProblem(Feature f) {
+  final name = f.name.trim();
+  if (name.isEmpty) return traitNeedsNameMessage;
+  if (name.toLowerCase() == metamagicFeatureName.toLowerCase()) {
+    return metamagicFeatureMessage;
+  }
+  return null;
 }
 
 class Character {

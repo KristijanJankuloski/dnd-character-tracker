@@ -24,6 +24,7 @@ Character createCharacter({
   List<Spell> spells = const [],
   bool starterGear = true,
   int baseSpeed = 30,
+  List<Feature> traits = const [],
 }) {
   final t = classTemplates[className]!;
   var c = Character(
@@ -39,7 +40,13 @@ Character createCharacter({
     baseSpeed: baseSpeed,
     skills: {for (final s in skills) s: Proficiency.proficient},
     hpCurrent: 1,
-    features: t.features,
+    features: [
+      ...t.features,
+      // Same rule as the editor: refused traits never reach the character.
+      for (final tr in traits)
+        if (traitProblem(tr) == null)
+          tr.copyWith(name: tr.name.trim(), pinned: tr.pinned.trim()),
+    ],
     spells: spells,
     flags: {
       if (className == 'Sorcerer' &&

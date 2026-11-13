@@ -8,6 +8,7 @@ import '../../domain/rules.dart';
 import '../../domain/tables.dart';
 import '../character/character_bloc.dart';
 import '../character/character_event.dart';
+import '../character/feature_editor.dart';
 import '../character/loaded_builder.dart';
 import '../resources/resources_panel.dart';
 
@@ -19,16 +20,13 @@ class CombatScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return LoadedBuilder(
       builder: (context, s) {
-        final c = s.character;
         final turn = TurnTracker(state: s);
         final attacks = _Attacks(state: s);
         final resources = Panel(
           title: 'Class resources',
           child: Column(children: [ResourcesPanel(state: s)]),
         );
-        final features = c.features.isEmpty
-            ? const SizedBox.shrink()
-            : FeaturesPanel(state: s);
+        final features = FeaturesPanel(state: s);
         if (tablet) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -69,39 +67,113 @@ class CombatScreen extends StatelessWidget {
   }
 }
 
-/// Class features. Metamagic gets a picker for the chosen options.
+/// Class features and hand-entered traits (species, background, subclass),
+/// grouped by source. Metamagic gets a picker for the chosen options and has
+/// no editor. A pinned trait also shows in the Overview's senses panel.
 class FeaturesPanel extends StatelessWidget {
   const FeaturesPanel({super.key, required this.state});
   final CharacterLoaded state;
 
+  Future<void> _edit(BuildContext context, int index, Feature f) async {
+    final bloc = context.read<CharacterBloc>();
+    final result = await showFeatureEditor(context, initial: f);
+    if (result == null) return;
+    bloc.add(
+      result.delete
+          ? FeatureRemoved(index)
+          : FeatureEdited(index, result.feature!),
+    );
+  }
+
+  Future<void> _add(BuildContext context) async {
+    final bloc = context.read<CharacterBloc>();
+    final result = await showFeatureEditor(context);
+    final f = result?.feature;
+    if (f != null) bloc.add(FeatureAdded(f));
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = state.character;
+    // Indexes into c.features, grouped by source in enum order, so edits and
+    // deletes address the right entry.
+    final groups = <FeatureSource, List<int>>{
+      for (final s in FeatureSource.values)
+        s: [
+          for (var i = 0; i < c.features.length; i++)
+            if (c.features[i].source == s) i,
+        ],
+    }..removeWhere((_, v) => v.isEmpty);
+    final headings = groups.length > 1;
     return Panel(
-      title: 'Features',
+      title: 'Features & traits',
+      trailing: TextButton.icon(
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('Add trait'),
+        onPressed: () => _add(context),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final f in c.features)
-            if (f.name == 'Metamagic')
-              _MetamagicFeature(feature: f, character: c)
-            else
+          if (c.features.isEmpty)
+            const Text(
+              'No traits yet. Add species, background or subclass traits.',
+              style: TextStyle(color: Palette.textDim),
+            ),
+          for (final entry in groups.entries) ...[
+            if (headings)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      f.name,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      f.text,
-                      style: const TextStyle(color: Palette.textDim),
-                    ),
-                  ],
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  entry.key.label,
+                  style: const TextStyle(
+                    color: Palette.goldDim,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+            for (final i in entry.value)
+              if (c.features[i].name == 'Metamagic')
+                _MetamagicFeature(feature: c.features[i], character: c)
+              else
+                InkWell(
+                  onTap: () => _edit(context, i, c.features[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                c.features[i].name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (c.features[i].pinned.trim().isNotEmpty)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Icon(
+                                  Icons.push_pin,
+                                  size: 14,
+                                  semanticLabel: 'Pinned to Senses',
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (c.features[i].text.isNotEmpty)
+                          Text(
+                            c.features[i].text,
+                            style: const TextStyle(color: Palette.textDim),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
         ],
       ),
     );
