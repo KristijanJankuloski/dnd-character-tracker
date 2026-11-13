@@ -398,6 +398,11 @@ class Spell {
     this.damageType = '',
     this.areaShape = AreaShape.none,
     this.areaSize = '',
+    this.school = '',
+    this.components = '',
+    this.duration = '',
+    this.higherLevels = '',
+    this.castingTimeText = '',
   });
 
   final String id;
@@ -419,6 +424,16 @@ class Spell {
   final AreaShape areaShape;
   final String areaSize;
 
+  /// Encyclopedia fields (empty for custom spells and older saves).
+  final String school;
+  final String components;
+  final String duration;
+  final String higherLevels;
+
+  /// The casting time as written, e.g. `1 minute` (the enum only knows
+  /// action / bonus action / reaction / other).
+  final String castingTimeText;
+
   bool get isCantrip => level == 0;
 
   Spell copyWith({bool? prepared}) => Spell(
@@ -438,6 +453,11 @@ class Spell {
     damageType: damageType,
     areaShape: areaShape,
     areaSize: areaSize,
+    school: school,
+    components: components,
+    duration: duration,
+    higherLevels: higherLevels,
+    castingTimeText: castingTimeText,
   );
 
   Map<String, Object?> toJson() => {
@@ -457,6 +477,11 @@ class Spell {
     'damageType': damageType,
     'areaShape': areaShape.name,
     'areaSize': areaSize,
+    'school': school,
+    'components': components,
+    'duration': duration,
+    'higherLevels': higherLevels,
+    'castingTimeText': castingTimeText,
   };
 
   factory Spell.fromJson(Map<String, Object?> j) => Spell(
@@ -480,6 +505,11 @@ class Spell {
     damageType: (j['damageType'] as String?) ?? '',
     areaShape: _enum(AreaShape.values, j['areaShape'], AreaShape.none),
     areaSize: (j['areaSize'] as String?) ?? '',
+    school: (j['school'] as String?) ?? '',
+    components: (j['components'] as String?) ?? '',
+    duration: (j['duration'] as String?) ?? '',
+    higherLevels: (j['higherLevels'] as String?) ?? '',
+    castingTimeText: (j['castingTimeText'] as String?) ?? '',
   );
 }
 
