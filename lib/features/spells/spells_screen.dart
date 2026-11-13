@@ -14,13 +14,7 @@ import '../character/character_event.dart';
 import '../character/loaded_builder.dart';
 import '../resources/resources_panel.dart';
 import 'slots_panel.dart';
-
-String castingLabel(CastingTime t) => switch (t) {
-  CastingTime.action => 'Action',
-  CastingTime.bonusAction => 'Bonus Action',
-  CastingTime.reaction => 'Reaction',
-  CastingTime.other => 'Longer',
-};
+import 'spell_detail_sheet.dart';
 
 class SpellsScreen extends StatefulWidget {
   const SpellsScreen({super.key, required this.tablet});
@@ -352,23 +346,7 @@ class _SpellTile extends StatelessWidget {
           ),
         ],
       ),
-      onTap: () => showWhy(
-        context,
-        spell.name,
-        [
-          spell.level == 0 ? 'Cantrip' : 'Level ${spell.level}',
-          'Casting time: ${castingLabel(spell.castingTime)}',
-          if (spell.range.isNotEmpty) 'Range: ${spell.range}',
-          if (spell.damage.isNotEmpty) 'Effect: ${spell.damage}',
-          if (spell.damageType.isNotEmpty) 'Damage type: ${spell.damageType}',
-          if (spell.areaShape != AreaShape.none)
-            'Area/target: ${spell.areaShape.label}${spell.areaSize.isNotEmpty ? ' (${spell.areaSize})' : ''}',
-          if (spell.save != null) 'Save: ${spell.save!.abbr}',
-          if (spell.concentration) 'Concentration',
-          if (spell.ritual) 'Ritual',
-          if (spell.text.isNotEmpty) spell.text,
-        ].join('\n'),
-      ),
+      onTap: () => showSpellDetailSheet(context, spell, canAdd: false),
       onLongPress: () async {
         if (await confirm(context, 'Remove ${spell.name}?', yes: 'Remove') &&
             context.mounted) {
