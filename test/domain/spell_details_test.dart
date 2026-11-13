@@ -41,4 +41,53 @@ void main() {
       expect(s.copyWith(prepared: false).damageType, 'fire');
     });
   });
+
+  group('Spell encyclopedia fields', () {
+    test('round-trip through JSON', () {
+      const s = Spell(
+        id: 'srd-fireball',
+        name: 'Fireball',
+        level: 3,
+        school: 'Evocation',
+        components: 'V, S, M (a tiny ball of bat guano and sulfur)',
+        duration: 'Instantaneous',
+        higherLevels: 'The damage increases by 1d6.',
+        castingTimeText: '1 action',
+      );
+      final back = Spell.fromJson(s.toJson());
+      expect(back.school, 'Evocation');
+      expect(back.components, 'V, S, M (a tiny ball of bat guano and sulfur)');
+      expect(back.duration, 'Instantaneous');
+      expect(back.higherLevels, 'The damage increases by 1d6.');
+      expect(back.castingTimeText, '1 action');
+    });
+
+    test('older saves without the fields load with empty strings', () {
+      final s = Spell.fromJson({'id': 'x', 'name': 'Old', 'level': 1});
+      expect(s.school, '');
+      expect(s.components, '');
+      expect(s.duration, '');
+      expect(s.higherLevels, '');
+      expect(s.castingTimeText, '');
+    });
+
+    test('copyWith keeps the fields', () {
+      const s = Spell(
+        id: 'x',
+        name: 'N',
+        level: 1,
+        school: 'Abjuration',
+        components: 'V',
+        duration: '1 round',
+        higherLevels: 'More.',
+        castingTimeText: '1 reaction',
+      );
+      final c = s.copyWith(prepared: false);
+      expect(c.school, 'Abjuration');
+      expect(c.components, 'V');
+      expect(c.duration, '1 round');
+      expect(c.higherLevels, 'More.');
+      expect(c.castingTimeText, '1 reaction');
+    });
+  });
 }

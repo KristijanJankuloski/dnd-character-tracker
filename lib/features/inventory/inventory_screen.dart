@@ -49,11 +49,10 @@ class InventoryScreen extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
-              LinearProgressIndicator(
-                value: pct,
-                minHeight: 8,
+              HpBar(
+                fraction: pct,
                 color: pct > 0.66 ? Palette.warn : Palette.gold,
-                backgroundColor: Palette.panelHi,
+                height: 12,
               ),
               const SizedBox(height: 4),
               Text(
@@ -121,6 +120,7 @@ class InventoryScreen extends StatelessWidget {
           title: 'Equipment',
           parchment: true,
           trailing: IconButton.filled(
+            style: framedIconStyle(filled: true),
             tooltip: 'Add item',
             icon: const Icon(Icons.add),
             onPressed: () => _add(context),

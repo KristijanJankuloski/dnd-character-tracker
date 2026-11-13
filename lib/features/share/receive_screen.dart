@@ -58,9 +58,12 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             top: 16,
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
+              decoration: ShapeDecoration(
                 color: Palette.panel.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(8),
+                shape: const BeveledRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(9)),
+                  side: BorderSide(color: Palette.goldDim),
+                ),
               ),
               child: Text(
                 _hint ??

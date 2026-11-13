@@ -6,6 +6,8 @@ import 'package:jjs_character_tracker/domain/srd_data.dart';
 import 'package:jjs_character_tracker/domain/tables.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/srd_catalog.dart';
+
 Character sorcerer({int level = 5}) => createCharacter(
   name: 'Ruin King',
   race: 'Tiefling',
@@ -38,6 +40,7 @@ Item srd(String name) {
 Character withItems(Character c, List<Item> items) => c.copyWith(items: items);
 
 void main() {
+  loadSrdCatalogForTests();
   group('derived stats', () {
     test('modifiers and proficiency', () {
       expect(abilityModOf(10), 0);

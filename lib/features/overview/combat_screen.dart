@@ -254,40 +254,44 @@ class TurnTracker extends StatelessWidget {
             label: '$label ${used ? 'used' : 'available'}',
             child: InkWell(
               onTap: () => bloc.add(TurnToggled(kind)),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: used ? Palette.bg : Palette.panelHi,
-                  border: Border.all(
-                    color: used ? Palette.textDim : Palette.gold,
-                    width: 1.5,
+              customBorder: const BeveledRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(8)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: CutBox(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  fill: used ? Palette.bg : Palette.plateTop,
+                  fillEnd: used ? null : Palette.plateBottom,
+                  stroke: used ? Palette.goldDim : Palette.gold,
+                  strokeWidth: 1.5,
+                  cut: 8,
+                  inner: used ? null : Palette.goldHairline,
+                  child: Column(
+                    children: [
+                      Icon(
+                        used ? Icons.check_circle : icon,
+                        color: used ? Palette.textDim : Palette.gold,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: used ? Palette.textDim : Palette.text,
+                          decoration: used ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      Text(
+                        used ? 'Used' : 'Available',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontStyle: FontStyle.italic,
+                          color: Palette.textDim,
+                        ),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      used ? Icons.check_circle : icon,
-                      color: used ? Palette.textDim : Palette.gold,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: used ? Palette.textDim : Palette.text,
-                        decoration: used ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                    Text(
-                      used ? 'Used' : 'Available',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Palette.textDim,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -383,92 +387,90 @@ class _Attacks extends StatelessWidget {
       child: Column(
         children: [
           for (final a in attacks)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                border: Border.all(color: Palette.goldDim),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          a.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          [
-                            if (a.bonus != null) 'Attack ${signed(a.bonus!)}',
-                            if (a.saveDc != null)
-                              'DC ${a.saveDc} ${a.saveAbility!.abbr} save',
-                            a.damage,
-                          ].where((e) => e.isNotEmpty).join(' · '),
-                        ),
-                        if (a.versatileDamage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: CutBox.onParchment(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            'Two-handed: ${a.versatileDamage}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        Text(
-                          [
-                            if (a.range.isNotEmpty) a.range,
-                            ...a.properties,
-                            if (!a.proficient) 'not proficient',
-                          ].join(' · '),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        if (a.spellId == null &&
-                            state.stats.attacksPerAction > 1)
-                          Text(
-                            'Attack ${t.attacksMade + 1} of ${state.stats.attacksPerAction}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (a.spellId != null && !a.properties.contains('Cantrip'))
-                    const Text(
-                      'Cast from\nSpells',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12),
-                    )
-                  else
-                    FilledButton(
-                      onPressed: () {
-                        final spellId = a.spellId;
-                        if (spellId != null) {
-                          // Cantrips cost no slot: cast it so the action is marked.
-                          final spell = state.character.spells.firstWhere(
-                            (x) => x.id == spellId,
-                          );
-                          bloc.add(SpellCast(spell));
-                        } else {
-                          bloc.add(
-                            AttackUsed(
-                              a,
-                              attacksPerAction: state.stats.attacksPerAction,
+                            a.name,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
                             ),
-                          );
-                        }
-                      },
-                      child: const Text('Use'),
-                    ),
-                  if (_canOffHand(a))
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: OutlinedButton(
-                        onPressed: () => bloc.add(AttackUsed(a, offHand: true)),
-                        child: const Text('Off-hand'),
+                          ),
+                          Text(
+                            [
+                              if (a.bonus != null) 'Attack ${signed(a.bonus!)}',
+                              if (a.saveDc != null)
+                                'DC ${a.saveDc} ${a.saveAbility!.abbr} save',
+                              a.damage,
+                            ].where((e) => e.isNotEmpty).join(' · '),
+                          ),
+                          if (a.versatileDamage != null)
+                            Text(
+                              'Two-handed: ${a.versatileDamage}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          Text(
+                            [
+                              if (a.range.isNotEmpty) a.range,
+                              ...a.properties,
+                              if (!a.proficient) 'not proficient',
+                            ].join(' · '),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          if (a.spellId == null &&
+                              state.stats.attacksPerAction > 1)
+                            Text(
+                              'Attack ${t.attacksMade + 1} of ${state.stats.attacksPerAction}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                        ],
                       ),
                     ),
-                ],
+                    if (a.spellId != null && !a.properties.contains('Cantrip'))
+                      const Text(
+                        'Cast from\nSpells',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      )
+                    else
+                      FilledButton(
+                        onPressed: () {
+                          final spellId = a.spellId;
+                          if (spellId != null) {
+                            // Cantrips cost no slot: cast it so the action is marked.
+                            final spell = state.character.spells.firstWhere(
+                              (x) => x.id == spellId,
+                            );
+                            bloc.add(SpellCast(spell));
+                          } else {
+                            bloc.add(
+                              AttackUsed(
+                                a,
+                                attacksPerAction: state.stats.attacksPerAction,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text('Use'),
+                      ),
+                    if (_canOffHand(a))
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              bloc.add(AttackUsed(a, offHand: true)),
+                          child: const Text('Off-hand'),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           const Text(

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../domain/repository.dart';
 import '../inventory/inventory_screen.dart';
 import '../overview/combat_screen.dart';
@@ -170,13 +171,15 @@ class _ShellState extends State<_Shell> {
             }
             return Scaffold(
               body: SafeArea(bottom: false, child: _body(false, loaded)),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: _index,
-                onDestinationSelected: (i) => setState(() => _index = i),
-                destinations: [
-                  for (final t in _tabs)
-                    NavigationDestination(icon: Icon(t.icon), label: t.label),
-                ],
+              bottomNavigationBar: NavFrame(
+                child: NavigationBar(
+                  selectedIndex: _index,
+                  onDestinationSelected: (i) => setState(() => _index = i),
+                  destinations: [
+                    for (final t in _tabs)
+                      NavigationDestination(icon: Icon(t.icon), label: t.label),
+                  ],
+                ),
               ),
             );
           },

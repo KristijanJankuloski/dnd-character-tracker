@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../domain/repository.dart';
 import '../../domain/sync.dart';
 import 'character_list_cubit.dart';
@@ -107,25 +108,18 @@ class _View extends StatelessWidget {
             itemBuilder: (context, i) {
               final c = state.characters[i];
               return Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: Palette.goldDim, width: 1.5),
-                ),
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(14),
-                  leading: CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Palette.crimson,
-                    child: Text(
-                      c.name.isEmpty ? '?' : c.name[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 22),
-                    ),
+                  leading: WaxSeal(
+                    initials: c.name.isEmpty ? '?' : c.name[0].toUpperCase(),
+                    size: 54,
                   ),
-                  title: Text(
-                    c.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                  title: Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text(
+                      c.name,
+                      style: displayStyle(size: 18, spacing: .4),
                     ),
                   ),
                   subtitle: Text(

@@ -52,6 +52,8 @@ class OverviewScreen extends StatelessWidget {
     final bloc = context.read<CharacterBloc>();
     return [
       _Identity(state: s),
+      const SizedBox(height: 10),
+      const OrnamentRule(),
       const SizedBox(height: 12),
       HpBlock(state: s),
       const SizedBox(height: 12),
@@ -181,18 +183,7 @@ class _Identity extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/'),
         ),
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: Palette.crimson,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Palette.text,
-            ),
-          ),
-        ),
+        WaxSeal(initials: initials),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -200,16 +191,16 @@ class _Identity extends StatelessWidget {
             children: [
               Text(
                 c.name,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: displayStyle(size: 21, spacing: .4),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
                 subtitle,
-                style: const TextStyle(color: Palette.textDim),
+                style: const TextStyle(
+                  color: Palette.textDim,
+                  fontStyle: FontStyle.italic,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -219,6 +210,7 @@ class _Identity extends StatelessWidget {
         Tooltip(
           message: 'Compact combat mode',
           child: IconButton.filledTonal(
+            style: framedIconStyle(filled: true),
             icon: const Icon(Icons.bolt),
             isSelected: c.compactMode,
             onPressed: () => bloc.add(CompactModeSet(!c.compactMode)),
@@ -239,20 +231,16 @@ class _CoreNumbers extends StatelessWidget {
     void why(String title, Breakdown b, [List<String> notes = const []]) =>
         showWhy(context, title, '${b.total} = ${b.describe()}', notes: notes);
     Widget cell(Widget w) => Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: w,
-      ),
+      child: Padding(padding: const EdgeInsets.only(left: 8), child: w),
     );
     return Row(
       children: [
-        cell(
-          StatShield(
-            label: 'AC',
-            value: '${st.ac.total}',
-            onTap: () => why('Armor Class', st.ac, st.acNotes),
-            changed: st.ac.parts.length > 2,
-          ),
+        StatShield(
+          label: 'AC',
+          value: '${st.ac.total}',
+          onTap: () => why('Armor Class', st.ac, st.acNotes),
+          changed: st.ac.parts.length > 2,
+          shield: true,
         ),
         cell(
           StatShield(
@@ -293,23 +281,30 @@ class _PassiveStrip extends StatelessWidget {
     Widget cell(String label, Skill s) => Expanded(
       child: Column(
         children: [
-          Text(
-            '${p[s]}',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-          ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Palette.textDim),
+          Text('${p[s]}', style: numberStyle(size: 25)),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: displayStyle(size: 10.5, color: Palette.textDim),
+            ),
           ),
         ],
       ),
+    );
+    const rule = SizedBox(
+      height: 38,
+      child: VerticalDivider(width: 9, color: Color(0x808A6D2F)),
     );
     return Panel(
       title: 'Passive scores',
       child: Row(
         children: [
           cell('Perception', Skill.perception),
+          rule,
           cell('Investigation', Skill.investigation),
+          rule,
           cell('Insight', Skill.insight),
         ],
       ),
@@ -329,16 +324,25 @@ class AbilitiesPanel extends StatelessWidget {
     return Panel(
       title: 'Ability scores',
       parchment: true,
-      child: GridView.count(
+      child: GridView(
         shrinkWrap: true,
+        padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 3,
-        childAspectRatio: 1.35,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisExtent: AbilityFrame.height,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+        ),
         children: [
           for (final a in Ability.values)
-            InkWell(
+            AbilityFrame(
+              abbr: a.abbr,
+              modifier: signed(st.mods[a]!),
+              score: '${st.scores[a]}',
+              changed: st.changedScores.contains(a),
+              semanticsLabel:
+                  '${a.label} ${signed(st.mods[a]!)}, score ${st.scores[a]}',
               onTap: () async {
                 final changed = st.changedScores.contains(a);
                 final v = await askNumber(
@@ -348,46 +352,6 @@ class AbilitiesPanel extends StatelessWidget {
                 );
                 if (v != null) bloc.add(AbilityScoreSet(a, v));
               },
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Palette.goldDim),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      a.abbr,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          signed(st.mods[a]!),
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (st.changedScores.contains(a))
-                          const Icon(
-                            Icons.circle,
-                            size: 7,
-                            color: Palette.crimson,
-                          ),
-                      ],
-                    ),
-                    Text(
-                      '${st.scores[a]}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
             ),
         ],
       ),
@@ -408,9 +372,15 @@ class SavesPanel extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            'Tap the dot for proficiency. Long-press a row to add a bonus.',
-            style: TextStyle(fontSize: 12),
+            'Tap the diamond for proficiency. Long-press a row to add a bonus.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontStyle: FontStyle.italic,
+              color: Palette.inkDim,
+            ),
           ),
+          const SizedBox(height: 4),
           for (final a in Ability.values)
             InkWell(
               onTap: () => showWhy(
@@ -441,20 +411,27 @@ class SavesPanel extends StatelessWidget {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
-                          child: Icon(
+                          child: ProficiencyMark(
                             c.saveProfs.contains(a)
-                                ? Icons.circle
-                                : Icons.circle_outlined,
-                            size: 14,
+                                ? ProficiencyLevel.proficient
+                                : ProficiencyLevel.none,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Expanded(child: Text(a.label)),
+                    Text(
+                      a.label,
+                      style: TextStyle(
+                        fontWeight: c.saveProfs.contains(a)
+                            ? FontWeight.w700
+                            : null,
+                      ),
+                    ),
+                    const Expanded(child: DotLeader()),
                     Text(
                       signed(st.saves[a]!.total),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: numberStyle(size: 17),
                     ),
                   ],
                 ),
@@ -489,21 +466,42 @@ class SkillsPanel extends StatelessWidget {
                   children: [
                     _marker(c.skills[s] ?? Proficiency.none, c.jackOfAllTrades),
                     const SizedBox(width: 10),
-                    Expanded(child: Text('${s.label} (${s.ability.abbr})')),
+                    Flexible(
+                      child: Text.rich(
+                        TextSpan(
+                          text: s.label,
+                          style: TextStyle(
+                            fontWeight:
+                                (c.skills[s] ?? Proficiency.none) ==
+                                    Proficiency.none
+                                ? null
+                                : FontWeight.w700,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '  ${s.ability.abbr}',
+                              style: displayStyle(
+                                size: 10,
+                                color: Palette.inkDim,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Expanded(child: DotLeader()),
                     if ((c.skillAdv[s] ?? AdvState.none) != AdvState.none)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: Text(
+                        child: Stamp(
                           c.skillAdv[s] == AdvState.advantage ? 'ADV' : 'DIS',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
                         ),
                       ),
                     Text(
                       signed(st.skills[s]!.total),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: numberStyle(size: 17),
                     ),
                   ],
                 ),
@@ -515,14 +513,11 @@ class SkillsPanel extends StatelessWidget {
   }
 
   Widget _marker(Proficiency p, bool jack) {
-    switch (p) {
-      case Proficiency.none:
-        return Icon(jack ? Icons.contrast : Icons.circle_outlined, size: 14);
-      case Proficiency.proficient:
-        return const Icon(Icons.circle, size: 14);
-      case Proficiency.expertise:
-        return const Icon(Icons.album, size: 14);
-    }
+    return ProficiencyMark(switch (p) {
+      Proficiency.none => jack ? ProficiencyLevel.half : ProficiencyLevel.none,
+      Proficiency.proficient => ProficiencyLevel.proficient,
+      Proficiency.expertise => ProficiencyLevel.expertise,
+    });
   }
 
   void _sheet(BuildContext context, Skill s, CharacterBloc bloc) {

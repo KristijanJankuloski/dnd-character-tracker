@@ -1,5 +1,6 @@
 import 'package:jjs_character_tracker/core/app.dart';
 import 'package:jjs_character_tracker/core/theme.dart';
+import 'package:jjs_character_tracker/core/widgets.dart';
 import 'package:jjs_character_tracker/data/database.dart';
 import 'package:jjs_character_tracker/data/drift_repository.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
@@ -8,7 +9,11 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/srd_catalog.dart';
+
 void main() {
+  setUpAll(loadSrdCatalogForTests);
+
   late AppDatabase db;
   late DriftCharacterRepository repo;
 
@@ -227,6 +232,33 @@ void main() {
     await tester.pumpAndSettle();
     final style = DefaultTextStyle.of(tester.element(title)).style;
     expect(style.color, Palette.ink);
+    await db.close();
+  });
+
+  testWidgets('the sheet draws AC in a shield and abilities in sheet frames', (
+    tester,
+  ) async {
+    await seed(tester);
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    expect(find.byType(WaxSeal), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is StatShield && w.shield && w.label == 'AC',
+      ),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text(
+        'Tap the diamond for proficiency. Long-press a row to add a bonus.',
+      ),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byType(AbilityFrame, skipOffstage: false), findsNWidgets(6));
     await db.close();
   });
 

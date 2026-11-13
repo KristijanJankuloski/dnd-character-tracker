@@ -51,4 +51,17 @@ void main() {
   test('ink on parchment is readable', () {
     expect(contrast(Palette.ink, Palette.parchment), greaterThan(4.5));
   });
+
+  test('restyle colours stay readable on the surfaces they sit on', () {
+    // Red headings, hint text and frame fills on parchment.
+    expect(contrast(Palette.inkRed, Palette.parchment), greaterThan(4.5));
+    expect(contrast(Palette.inkDim, Palette.parchment), greaterThan(4.5));
+    expect(contrast(Palette.ink, Palette.parchmentHi), greaterThan(4.5));
+    expect(contrast(Palette.inkRed, Palette.parchmentHi), greaterThan(4.5));
+    // Gold titles and dim captions on the dark panel and plate fills.
+    for (final surface in [Palette.panel, Palette.panelHi, Palette.bg]) {
+      expect(contrast(Palette.gold, surface), greaterThan(4.5));
+      expect(contrast(Palette.textDim, surface), greaterThan(4.5));
+    }
+  });
 }

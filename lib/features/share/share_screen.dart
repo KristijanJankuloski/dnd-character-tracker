@@ -136,9 +136,12 @@ class _ShareScreenState extends State<ShareScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const ShapeDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                shape: BeveledRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  side: BorderSide(color: Palette.gold, width: 2),
+                ),
               ),
               child: QrImageView(
                 data: _server!.ticket.encode(),

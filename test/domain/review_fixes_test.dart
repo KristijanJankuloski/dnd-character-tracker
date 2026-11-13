@@ -9,6 +9,8 @@ import 'package:jjs_character_tracker/domain/tables.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/srd_catalog.dart';
+
 Character make(
   String cls, {
   int level = 5,
@@ -37,6 +39,7 @@ Item weapon(String name, {bool equipped = true}) {
 }
 
 void main() {
+  loadSrdCatalogForTests();
   group('death and healing', () {
     test('massive damage warns but does not decide death', () {
       final c = make('Sorcerer').copyWith(hpCurrent: 5);

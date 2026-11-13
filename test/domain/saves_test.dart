@@ -11,8 +11,12 @@ void main() {
     className: 'Fighter',
     level: 5,
     abilities: const {
-      Ability.str: 10, Ability.dex: 14, Ability.con: 12,
-      Ability.int_: 10, Ability.wis: 10, Ability.cha: 10,
+      Ability.str: 10,
+      Ability.dex: 14,
+      Ability.con: 12,
+      Ability.int_: 10,
+      Ability.wis: 10,
+      Ability.cha: 10,
     },
   );
 
