@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../domain/models.dart';
 
 String castingLabel(CastingTime t) => switch (t) {
@@ -17,7 +18,8 @@ String spellCastingLabel(Spell s) => s.castingTimeText.isEmpty
     ? castingLabel(s.castingTime)
     : s.castingTimeText.split(',').first.trim();
 
-/// Opens the spell's details in a draggable bottom sheet. Completes with true
+/// Opens the spell's details in a draggable bottom sheet, laid out as a
+/// parchment spell card: red name, tapered rules, bold labels. Completes with true
 /// when "Add to character" is pressed (only offered when [canAdd]), otherwise
 /// null.
 Future<bool?> showSpellDetailSheet(
@@ -50,7 +52,15 @@ class _SpellDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = spell;
-    final theme = Theme.of(context).textTheme;
+    const heading = TextStyle(
+      color: Palette.inkRed,
+      fontWeight: FontWeight.w700,
+      fontStyle: FontStyle.italic,
+    );
+    const rule = Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: TaperRule(color: Palette.inkRed, height: 4),
+    );
     final subtitle = [
       s.level == 0 ? 'Cantrip' : 'Level ${s.level}',
       if (s.school.isNotEmpty) s.school,
@@ -63,57 +73,72 @@ class _SpellDetail extends StatelessWidget {
         Expanded(
           child: SingleChildScrollView(
             controller: scroll,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(s.name, style: theme.titleLarge),
-                Text(subtitle, style: const TextStyle(color: Palette.textDim)),
-                if (s.concentration || s.ritual)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Wrap(
-                      spacing: 12,
-                      children: [
-                        if (s.concentration)
-                          const _Flag(Icons.psychology, 'Concentration'),
-                        if (s.ritual)
-                          const _Flag(Icons.history_edu, 'Ritual'),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                _DetailRow(
-                  'Casting time',
-                  s.castingTimeText.isEmpty
-                      ? castingLabel(s.castingTime)
-                      : s.castingTimeText,
-                ),
-                _DetailRow('Range', s.range),
-                _DetailRow('Components', s.components),
-                _DetailRow('Duration', s.duration),
-                _DetailRow('Damage', s.damage),
-                _DetailRow('Area', area),
-                _DetailRow('Save', s.save?.label ?? ''),
-                _DetailRow('Attack', s.attackRoll ? 'Spell attack roll' : ''),
-                if (s.text.isNotEmpty) ...[
-                  const Divider(height: 24),
-                  for (final p in s.text.split('\n\n'))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(p),
-                    ),
-                ],
-                if (s.higherLevels.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+            child: Panel(
+              parchment: true,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'At Higher Levels',
-                    style: theme.titleSmall?.copyWith(color: Palette.gold),
+                    s.name,
+                    style: displayStyle(
+                      size: 22,
+                      color: Palette.inkRed,
+                      spacing: .6,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(s.higherLevels),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Palette.inkDim,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  if (s.concentration || s.ritual)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 12,
+                        children: [
+                          if (s.concentration)
+                            const _Flag(Icons.psychology, 'Concentration'),
+                          if (s.ritual)
+                            const _Flag(Icons.history_edu, 'Ritual'),
+                        ],
+                      ),
+                    ),
+                  rule,
+                  _DetailRow(
+                    'Casting time',
+                    s.castingTimeText.isEmpty
+                        ? castingLabel(s.castingTime)
+                        : s.castingTimeText,
+                  ),
+                  _DetailRow('Range', s.range),
+                  _DetailRow('Components', s.components),
+                  _DetailRow('Duration', s.duration),
+                  _DetailRow('Damage', s.damage),
+                  _DetailRow('Area', area),
+                  _DetailRow('Save', s.save?.label ?? ''),
+                  _DetailRow('Attack', s.attackRoll ? 'Spell attack roll' : ''),
+                  if (s.text.isNotEmpty) ...[
+                    rule,
+                    for (final p in s.text.split('\n\n'))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(p),
+                      ),
+                  ],
+                  if (s.higherLevels.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    const Text('At Higher Levels', style: heading),
+                    const SizedBox(height: 4),
+                    Text(s.higherLevels),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -153,10 +178,7 @@ class _DetailRow extends StatelessWidget {
             width: 104,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Palette.textDim,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
           Expanded(child: Text(value)),
@@ -178,10 +200,10 @@ class _Flag extends StatelessWidget {
       Icon(
         icon,
         size: 16,
-        color: icon == Icons.psychology ? Palette.arcane : Palette.gold,
+        color: icon == Icons.psychology ? Palette.arcaneInk : Palette.inkDim,
       ),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 12)),
+      Text(label, style: const TextStyle(fontSize: 13.5)),
     ],
   );
 }

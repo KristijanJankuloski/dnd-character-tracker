@@ -26,9 +26,8 @@ void main() {
       MaterialApp(
         theme: buildTheme(),
         builder: (ctx, child) => MediaQuery(
-          data: MediaQuery.of(
-            ctx,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(ctx)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: Builder(

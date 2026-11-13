@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jjs_character_tracker/core/frames.dart';
 import 'package:jjs_character_tracker/core/theme.dart';
 import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:jjs_character_tracker/domain/spell_catalog.dart';
@@ -10,6 +11,15 @@ import '../helpers/srd_catalog.dart';
 class _Outcome {
   bool? result;
   bool closed = false;
+}
+
+/// WCAG contrast ratio between two opaque colours.
+double contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
 }
 
 void main() {
@@ -77,6 +87,45 @@ void main() {
   });
 
   group('showSpellDetailSheet', () {
+    testWidgets('reads as a parchment spell card', (tester) async {
+      await openSheet(tester, spellNamed('Detect Magic'), canAdd: true);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is CustomPaint && w.painter is ParchmentPainter,
+        ),
+        findsOneWidget,
+      );
+      // Red inscription name, as in a printed spell entry.
+      final name = tester.widget<Text>(find.text('Detect Magic'));
+      expect(name.style!.fontFamily, display);
+      expect(name.style!.color, Palette.inkRed);
+      // Everything on the card is inked, never the pale on-dark text colours.
+      for (final text in [
+        'Casting time',
+        '1 action',
+        'Concentration',
+        'Ritual',
+      ]) {
+        final style = DefaultTextStyle.of(tester.element(find.text(text))).style
+            .merge(tester.widget<Text>(find.text(text)).style);
+        expect(
+          contrast(style.color!, Palette.parchment),
+          greaterThan(4.5),
+          reason: text,
+        );
+      }
+      for (final icon in [Icons.psychology, Icons.history_edu]) {
+        expect(
+          contrast(
+            tester.widget<Icon>(find.byIcon(icon)).color!,
+            Palette.parchment,
+          ),
+          greaterThan(4.5),
+          reason: '$icon',
+        );
+      }
+    });
+
     testWidgets('shows every detail of an encyclopedia spell', (tester) async {
       await openSheet(tester, spellNamed('Fireball'), canAdd: false);
       expect(find.text('Fireball'), findsOneWidget);
@@ -104,9 +153,14 @@ void main() {
       );
     });
 
-    testWidgets('shows the full casting time of a reaction spell', (tester) async {
+    testWidgets('shows the full casting time of a reaction spell', (
+      tester,
+    ) async {
       await openSheet(tester, spellNamed('Shield'), canAdd: false);
-      expect(find.textContaining('1 reaction, which you take when'), findsOneWidget);
+      expect(
+        find.textContaining('1 reaction, which you take when'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Add to character completes with true', (tester) async {
@@ -117,7 +171,9 @@ void main() {
       expect(out.result, isTrue);
     });
 
-    testWidgets('no Add button when the spell is already known', (tester) async {
+    testWidgets('no Add button when the spell is already known', (
+      tester,
+    ) async {
       await openSheet(tester, spellNamed('Fireball'), canAdd: false);
       expect(find.text('Add to character'), findsNothing);
     });

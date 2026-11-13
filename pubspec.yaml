@@ -89,6 +89,25 @@ flutter:
 
   assets:
     - assets/data/srd_spells.json
+    - assets/fonts/Cinzel-OFL.txt
+    - assets/fonts/Alegreya-OFL.txt
+
+  # Cinzel: names, titles and captions. Alegreya: text and numbers.
+  # Both are under the SIL Open Font License (see the OFL files beside them).
+  fonts:
+    - family: Cinzel
+      fonts:
+        - asset: assets/fonts/Cinzel-Bold.ttf
+          weight: 700
+    - family: Alegreya
+      fonts:
+        - asset: assets/fonts/Alegreya-Regular.ttf
+        - asset: assets/fonts/Alegreya-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Alegreya-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Alegreya-ExtraBold.ttf
+          weight: 800
 
   # To add assets to your application, add an assets section, like this:
   # assets:

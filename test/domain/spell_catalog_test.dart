@@ -7,11 +7,27 @@ import '../helpers/srd_catalog.dart';
 
 // Names offered by the create-character screen's starter spell lists.
 const _starterNames = [
-  'Fire Bolt', 'Light', 'Mage Hand', 'Minor Illusion', 'Magic Missile',
-  'Shield', 'Mage Armor', 'Misty Step', 'Fireball', 'Detect Magic',
-  'Sacred Flame', 'Guidance', 'Cure Wounds', 'Healing Word', 'Bless',
-  'Hold Person', 'Druidcraft', 'Thunderwave', 'Vicious Mockery',
-  'Charm Person', 'Eldritch Blast',
+  'Fire Bolt',
+  'Light',
+  'Mage Hand',
+  'Minor Illusion',
+  'Magic Missile',
+  'Shield',
+  'Mage Armor',
+  'Misty Step',
+  'Fireball',
+  'Detect Magic',
+  'Sacred Flame',
+  'Guidance',
+  'Cure Wounds',
+  'Healing Word',
+  'Bless',
+  'Hold Person',
+  'Druidcraft',
+  'Thunderwave',
+  'Vicious Mockery',
+  'Charm Person',
+  'Eldritch Blast',
 ];
 
 void main() {
@@ -88,10 +104,7 @@ void main() {
       expect(named('Contact Other Plane').damage, isEmpty);
       expect(named('Web').damage, isEmpty);
       expect(named('Web').save, Ability.dex);
-      expect(
-        named('Spirit Guardians').damage,
-        '3d8 radiant or 3d8 necrotic',
-      );
+      expect(named('Spirit Guardians').damage, '3d8 radiant or 3d8 necrotic');
       expect(named('Ice Storm').damage, '2d8 bludgeoning + 4d6 cold');
     });
 

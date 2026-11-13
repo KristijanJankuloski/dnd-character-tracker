@@ -117,19 +117,17 @@ class _SpellsScreenState extends State<SpellsScreen> {
                 onTap: c.concentration == null
                     ? null
                     : () => bloc.add(const ConcentrationEnded()),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: c.concentration == null
-                        ? Palette.panelHi
-                        : const Color(0xFF1F2A4A),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: c.concentration == null
-                          ? Palette.goldDim
-                          : Palette.arcane,
-                    ),
-                  ),
+                customBorder: const BeveledRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(7)),
+                ),
+                child: CutBox(
+                  fill: c.concentration == null
+                      ? Palette.plateTop
+                      : const Color(0xFF1F2A4A),
+                  fillEnd: c.concentration == null ? Palette.plateBottom : null,
+                  stroke: c.concentration == null
+                      ? Palette.goldDim
+                      : Palette.arcane,
                   child: Row(
                     children: [
                       const Icon(Icons.psychology, color: Palette.arcane),
@@ -171,6 +169,7 @@ class _SpellsScreenState extends State<SpellsScreen> {
         final list = Panel(
           title: 'Spells',
           trailing: IconButton.filledTonal(
+            style: framedIconStyle(filled: true),
             tooltip: 'Add spell',
             icon: const Icon(Icons.add),
             onPressed: () => _addSpell(context),
@@ -388,10 +387,7 @@ class _SpellTile extends StatelessWidget {
             children: [
               Text(
                 'Cast ${spell.name}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: displayStyle(size: 19, color: Palette.gold, spacing: .6),
               ),
               Text(
                 'Uses: ${castingLabel(spell.castingTime)}${spell.concentration ? ' · Concentration' : ''}',

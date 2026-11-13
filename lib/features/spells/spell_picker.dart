@@ -6,8 +6,7 @@ import '../../domain/models.dart';
 import '../../domain/srd_data.dart';
 import 'spell_detail_sheet.dart';
 
-const _attribution =
-    'Spell data: SRD 5.1 © Wizards of the Coast, CC-BY-4.0';
+const _attribution = 'Spell data: SRD 5.1 © Wizards of the Coast, CC-BY-4.0';
 
 /// Bottom sheet for choosing a spell to add: the SRD encyclopedia with search
 /// and level filters, plus a hand-made custom spell. Pops the chosen [Spell].
@@ -75,7 +74,7 @@ class _SpellPickerState extends State<SpellPicker> {
               itemBuilder: (ctx, i) {
                 if (i == 0) {
                   return ListTile(
-                    leading: const Icon(Icons.edit),
+                    leading: const Icon(Icons.edit, color: Palette.gold),
                     title: const Text('Create a custom spell'),
                     onTap: () async {
                       final sp = await _custom(context);
@@ -98,7 +97,14 @@ class _SpellPickerState extends State<SpellPicker> {
                 }
                 final s = list[i - 1];
                 return ListTile(
-                  title: Text(s.name),
+                  // A hairline between entries, as in an index.
+                  shape: const Border(
+                    top: BorderSide(color: Color(0x408A6D2F)),
+                  ),
+                  title: Text(
+                    s.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   subtitle: Text(
                     [
                       s.level == 0 ? 'Cantrip' : 'Level ${s.level}',
@@ -106,6 +112,7 @@ class _SpellPickerState extends State<SpellPicker> {
                       spellCastingLabel(s),
                       if (s.range.isNotEmpty) s.range,
                     ].join(' · '),
+                    style: const TextStyle(fontStyle: FontStyle.italic),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -144,7 +151,12 @@ class _SpellPickerState extends State<SpellPicker> {
             padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
               _attribution,
-              style: TextStyle(fontSize: 11, color: Palette.textDim),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontStyle: FontStyle.italic,
+                color: Palette.textDim,
+              ),
             ),
           ),
         ],

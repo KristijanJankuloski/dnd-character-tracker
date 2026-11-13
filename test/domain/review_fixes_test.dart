@@ -8,6 +8,7 @@ import 'package:jjs_character_tracker/domain/srd_data.dart';
 import 'package:jjs_character_tracker/domain/tables.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+
 import '../helpers/srd_catalog.dart';
 
 Character make(

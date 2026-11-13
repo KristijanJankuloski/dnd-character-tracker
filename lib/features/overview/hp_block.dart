@@ -29,6 +29,7 @@ class HpBlock extends StatelessWidget {
           Row(
             children: [
               IconButton.outlined(
+                style: framedIconStyle(),
                 tooltip: 'Damage 1',
                 onPressed: () => bloc.add(const HpDamageApplied(1)),
                 icon: const Icon(Icons.remove),
@@ -48,20 +49,20 @@ class HpBlock extends StatelessWidget {
                           const Icon(
                             Icons.favorite,
                             color: Palette.crimsonHi,
-                            size: 30,
+                            size: 28,
+                            shadows: [
+                              Shadow(color: Color(0x8CB02A22), blurRadius: 8),
+                            ],
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 9),
                           Text(
                             '${c.hpCurrent}',
-                            style: TextStyle(
-                              fontSize: compact ? 36 : 44,
-                              fontWeight: FontWeight.w800,
-                            ),
+                            style: numberStyle(size: compact ? 40 : 52),
                           ),
                           Text(
                             ' / $max',
                             style: TextStyle(
-                              fontSize: compact ? 22 : 26,
+                              fontSize: compact ? 21 : 24,
                               color: Palette.textDim,
                             ),
                           ),
@@ -72,6 +73,7 @@ class HpBlock extends StatelessWidget {
                 ),
               ),
               IconButton.outlined(
+                style: framedIconStyle(),
                 tooltip: 'Heal 1',
                 onPressed: () => bloc.add(const HpHealed(1)),
                 icon: const Icon(Icons.add),
@@ -79,15 +81,7 @@ class HpBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: fraction,
-              minHeight: 10,
-              color: _barColor(fraction),
-              backgroundColor: Palette.panelHi,
-            ),
-          ),
+          HpBar(fraction: fraction, color: _barColor(fraction)),
           const SizedBox(height: 6),
           InkWell(
             onTap: () async {
@@ -120,7 +114,10 @@ class HpBlock extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     'Temp HP: ${c.tempHp}',
-                    style: const TextStyle(color: Palette.textDim),
+                    style: const TextStyle(
+                      color: Palette.textDim,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
@@ -261,26 +258,43 @@ class DeathSavesPanel extends StatelessWidget {
       title: c.dead ? 'Dead' : (c.stable ? 'Stable' : 'Death saves'),
       child: Column(
         children: [
-          Row(
-            children: [
-              const Text('Successes'),
-              const SizedBox(width: 10),
-              Pips(
-                total: 3,
-                filled: c.deathSuccesses,
-                color: Palette.good,
-                size: 20,
-              ),
-              const Spacer(),
-              const Text('Failures'),
-              const SizedBox(width: 10),
-              Pips(
-                total: 3,
-                filled: c.deathFailures,
-                color: Palette.crimsonHi,
-                size: 20,
-              ),
-            ],
+          // A Wrap, so large text settings stack the two tallies instead of
+          // overflowing.
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Successes'),
+                    const SizedBox(width: 6),
+                    Pips(
+                      total: 3,
+                      filled: c.deathSuccesses,
+                      color: Palette.good,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Failures'),
+                    const SizedBox(width: 6),
+                    Pips(
+                      total: 3,
+                      filled: c.deathFailures,
+                      color: Palette.crimsonHi,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           if (c.dead)
@@ -358,7 +372,7 @@ class HitDicePanel extends StatelessWidget {
       children: [
         for (final e in state.stats.hitDice.entries)
           ActionChip(
-            avatar: const Icon(Icons.casino_outlined, size: 18),
+            avatar: const DieGlyph(color: Palette.gold),
             label: Text(
               '${e.value - (c.hitDiceUsed[e.key] ?? 0)}/${e.value} d${e.key}',
             ),
@@ -435,6 +449,7 @@ class ConditionsPanel extends StatelessWidget {
         if (chips.isEmpty)
           const Text('No conditions', style: TextStyle(color: Palette.textDim)),
         IconButton.outlined(
+          style: framedIconStyle(),
           tooltip: 'Add condition',
           icon: const Icon(Icons.add),
           onPressed: () => _add(context),

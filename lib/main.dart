@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
@@ -12,6 +13,13 @@ import 'domain/spell_catalog.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadSpellCatalog(rootBundle);
+  LicenseRegistry.addLicense(() async* {
+    for (final font in const ['Cinzel', 'Alegreya']) {
+      yield LicenseEntryWithLineBreaks([
+        font,
+      ], await rootBundle.loadString('assets/fonts/$font-OFL.txt'));
+    }
+  });
   final db = AppDatabase();
   runApp(
     DnDApp(

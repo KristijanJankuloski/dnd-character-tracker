@@ -22,7 +22,9 @@ List<Spell> parseSpellCatalog(String json) {
 }
 
 Future<void> loadSpellCatalog(AssetBundle bundle) async {
-  setSpellCatalog(parseSpellCatalog(await bundle.loadString(spellCatalogAsset)));
+  setSpellCatalog(
+    parseSpellCatalog(await bundle.loadString(spellCatalogAsset)),
+  );
 }
 
 void setSpellCatalog(List<Spell> spells) {
