@@ -55,6 +55,38 @@ void main() {
     await b.close();
   });
 
+  test(
+    'adding a trait is logged, shows as a pinned chip, and Undo removes it',
+    () async {
+      final b = make();
+      await settle();
+      b.add(
+        const FeatureAdded(
+          Feature(
+            'Hellish Resistance',
+            'Fire',
+            source: FeatureSource.species,
+            pinned: 'Fire resistance',
+          ),
+        ),
+      );
+      await settle();
+      expect(last(b).character.features.last.name, 'Hellish Resistance');
+      expect(last(b).notice?.undoable, isTrue);
+      expect(
+        last(b).stats.traits,
+        contains(('Hellish Resistance', 'Fire resistance')),
+      );
+      b.add(const UndoRequested());
+      await settle();
+      expect(
+        last(b).character.features.any((f) => f.name == 'Hellish Resistance'),
+        isFalse,
+      );
+      await b.close();
+    },
+  );
+
   test('blocked actions leave the character alone and warn', () async {
     final b = make();
     await settle();

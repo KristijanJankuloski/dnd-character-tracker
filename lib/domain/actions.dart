@@ -1061,6 +1061,68 @@ ActionResult setMetamagic(Character c, Set<String> chosen) {
   );
 }
 
+// ---------------------------------------------------------------- Traits
+
+const _metamagicName = 'Metamagic';
+const _metamagicBlocked =
+    'Metamagic is a built-in feature; use its Choose button.';
+const _missingTrait = 'That trait no longer exists.';
+
+/// Trims [f]. Returns the cleaned feature, or the reason it was refused.
+(Feature?, String?) _cleanFeature(Feature f) {
+  final name = f.name.trim();
+  if (name.isEmpty) return (null, 'Give the trait a name.');
+  if (name.toLowerCase() == _metamagicName.toLowerCase()) {
+    return (null, _metamagicBlocked);
+  }
+  return (f.copyWith(name: name, pinned: f.pinned.trim()), null);
+}
+
+bool _validFeatureIndex(Character c, int index) =>
+    index >= 0 && index < c.features.length;
+
+bool _isMetamagic(Feature f) => f.name == _metamagicName;
+
+ActionResult addFeature(Character c, Feature f) {
+  final (clean, problem) = _cleanFeature(f);
+  if (clean == null) return ActionResult.blocked(c, problem!);
+  return ActionResult(
+    c.copyWith(features: [...c.features, clean]),
+    'Added trait: ${clean.name}',
+  );
+}
+
+/// Features are addressed by list index; sync and share move the whole
+/// character, so no id is needed.
+ActionResult editFeature(Character c, int index, Feature f) {
+  if (!_validFeatureIndex(c, index)) {
+    return ActionResult.blocked(c, _missingTrait);
+  }
+  if (_isMetamagic(c.features[index])) {
+    return ActionResult.blocked(c, _metamagicBlocked);
+  }
+  final (clean, problem) = _cleanFeature(f);
+  if (clean == null) return ActionResult.blocked(c, problem!);
+  final features = [...c.features];
+  features[index] = clean;
+  return ActionResult(
+    c.copyWith(features: features),
+    'Edited trait: ${clean.name}',
+  );
+}
+
+ActionResult removeFeature(Character c, int index) {
+  if (!_validFeatureIndex(c, index)) {
+    return ActionResult.blocked(c, _missingTrait);
+  }
+  final f = c.features[index];
+  if (_isMetamagic(f)) return ActionResult.blocked(c, _metamagicBlocked);
+  return ActionResult(
+    c.copyWith(features: [...c.features]..removeAt(index)),
+    'Removed trait: ${f.name}',
+  );
+}
+
 ActionResult setSkill(Character c, Skill skill) {
   final cur = c.skills[skill] ?? Proficiency.none;
   final next = Proficiency.values[(cur.index + 1) % Proficiency.values.length];
