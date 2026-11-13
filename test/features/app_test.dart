@@ -216,6 +216,116 @@ void main() {
     await db.close();
   });
 
+  Future<void> openCombat(WidgetTester tester) async {
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Ruin King'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Combat'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollTo(WidgetTester tester, Finder f) async {
+    await tester.scrollUntilVisible(
+      f,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // Bring it fully into view so a tap does not land on the nav bar.
+    await tester.ensureVisible(f);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a trait can be added from the Combat panel and shows on the '
+      'Sheet', (tester) async {
+    final c = await seed(tester);
+    await openCombat(tester);
+    await scrollTo(tester, find.text('Add trait'));
+    await tester.tap(find.text('Add trait'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Name'),
+      'Hellish Resistance',
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Species'));
+    await tester.enterText(
+      find.widgetWithText(
+        TextField,
+        'Show in Senses & resistances as (optional)',
+      ),
+      'Fire resistance',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final saved = (await tester.runAsync(() => repo.get(c.id)))!;
+    expect(saved.features.last.name, 'Hellish Resistance');
+    expect(saved.features.last.source, FeatureSource.species);
+    expect(saved.features.last.pinned, 'Fire resistance');
+    await scrollTo(tester, find.text('Hellish Resistance'));
+    expect(find.text('Species'), findsOneWidget);
+    await tester.tap(find.text('Sheet'));
+    await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Fire resistance (Hellish Resistance)'));
+    expect(find.text('Fire resistance (Hellish Resistance)'), findsOneWidget);
+    await db.close();
+  });
+
+  testWidgets('a trait can be edited and deleted from the Combat panel', (
+    tester,
+  ) async {
+    final c = createCharacter(
+      name: 'Ruin King',
+      race: 'Tiefling',
+      className: 'Sorcerer',
+      level: 5,
+      abilities: standardArray,
+      traits: [
+        const Feature('Darkvision', '60 ft', source: FeatureSource.species),
+      ],
+    );
+    await tester.runAsync(() => repo.create(c));
+    await openCombat(tester);
+    await scrollTo(tester, find.text('Darkvision'));
+    await tester.tap(find.text('Darkvision'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Description'),
+      'Sees 60 ft in the dark',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    var saved = await tester.runAsync(() => repo.get(c.id));
+    expect(saved!.features.last.text, 'Sees 60 ft in the dark');
+    // Dismiss the Undo snackbar so it does not cover the row.
+    ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first))
+        .hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Darkvision'));
+    await tester.tap(find.text('Darkvision'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    saved = await tester.runAsync(() => repo.get(c.id));
+    expect(saved!.features.any((f) => f.name == 'Darkvision'), isFalse);
+    await db.close();
+  });
+
+  testWidgets('the Metamagic entry has no editor', (tester) async {
+    await seed(tester);
+    await openCombat(tester);
+    await scrollTo(tester, find.textContaining('Metamagic ('));
+    await tester.tap(find.textContaining('Metamagic ('));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    await db.close();
+  });
+
   testWidgets('equipment rows use dark ink on the parchment panel', (
     tester,
   ) async {
