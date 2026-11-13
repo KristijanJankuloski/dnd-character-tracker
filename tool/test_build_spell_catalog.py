@@ -172,6 +172,42 @@ class CombatFieldTests(unittest.TestCase):
                                  body="The spell's base damage is 12d6."))[0]
         self.assertEqual((dbf["damage"], dbf["damageType"]), ("12d6 fire", "fire"))
 
+    def test_non_breaking_spaces_are_plain_spaces(self):
+        nb = chr(0xA0)  # non-breaking space
+        s = b.parse_file(block(
+            body="Deal 1d6 fire damage.\n\n***At" + nb + "Higher" + nb + "Levels***."
+                 + nb + "The damage" + nb + "increases by 1d6."))[0]
+        self.assertEqual(s["higherLevels"], "The damage increases by 1d6.")
+        self.assertNotIn(nb, s["text"] + s["higherLevels"])
+
+    def test_misleading_saves_and_damage_are_overridden(self):
+        light = b.parse_file(block(name="Light", body=(
+            "A hostile creature must succeed on a Dexterity saving throw.")))[0]
+        self.assertIsNone(light["save"])
+        cop = b.parse_file(block(name="Contact Other Plane", body=(
+            "Make a DC 15 Intelligence saving throw. On a failure, "
+            "you take 6d6 psychic damage.")))[0]
+        self.assertEqual((cop["save"], cop["damage"], cop["damageType"]),
+                         (None, "", ""))
+        web = b.parse_file(block(name="Web", body=(
+            "Each creature must make a Dexterity saving throw. "
+            "Burning webs deal 2d4 fire damage.")))[0]
+        self.assertEqual((web["save"], web["damage"]), ("dex", ""))
+
+    def test_alternative_damages_are_not_summed(self):
+        sg = b.parse_file(block(name="Spirit Guardians", body=(
+            "It takes 3d8 radiant damage or 3d8 necrotic damage.")))[0]
+        self.assertEqual(sg["damage"], "3d8 radiant or 3d8 necrotic")
+        self.assertEqual(sg["damageType"], "radiant")
+        ps = b.parse_file(block(name="Prismatic Spray", body=(
+            "10d6 fire damage. 10d6 acid damage. 10d6 cold damage.")))[0]
+        self.assertEqual(ps["damage"], "10d6 (fire, acid, lightning, poison or cold)")
+        self.assertEqual(ps["damageType"], "fire")
+        # Genuine sums stay summed.
+        flame = b.parse_file(block(name="Flame Strike", body=(
+            "4d6 fire damage and 4d6 radiant damage.")))[0]
+        self.assertEqual(flame["damage"], "4d6 fire + 4d6 radiant")
+
     def test_attack_roll(self):
         self.assertTrue(gen("Make a melee spell attack.")["attackRoll"])
         self.assertTrue(gen("Make a ranged spell attack.")["attackRoll"])

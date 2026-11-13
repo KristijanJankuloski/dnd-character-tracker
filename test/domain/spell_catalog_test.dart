@@ -69,6 +69,32 @@ void main() {
       );
     });
 
+    test('splits out At Higher Levels and keeps normal spaces', () {
+      final nbsp = String.fromCharCode(0xA0);
+      Spell named(String n) => srdSpells.firstWhere((s) => s.name == n);
+      for (final n in ['Counterspell', 'Hellish Rebuke', "Hunter's Mark"]) {
+        expect(named(n).higherLevels, isNotEmpty, reason: n);
+        expect(named(n).text, isNot(contains('At Higher Levels')), reason: n);
+      }
+      for (final s in srdSpells) {
+        expect(s.text + s.higherLevels, isNot(contains(nbsp)), reason: s.name);
+      }
+    });
+
+    test('attack-list fields do not mislead', () {
+      Spell named(String n) => srdSpells.firstWhere((s) => s.name == n);
+      expect(named('Light').save, isNull);
+      expect(named('Contact Other Plane').save, isNull);
+      expect(named('Contact Other Plane').damage, isEmpty);
+      expect(named('Web').damage, isEmpty);
+      expect(named('Web').save, Ability.dex);
+      expect(
+        named('Spirit Guardians').damage,
+        '3d8 radiant or 3d8 necrotic',
+      );
+      expect(named('Ice Storm').damage, '2d8 bludgeoning + 4d6 cold');
+    });
+
     test('every starter spell exists', () {
       final names = srdSpells.map((s) => s.name).toSet();
       for (final n in _starterNames) {

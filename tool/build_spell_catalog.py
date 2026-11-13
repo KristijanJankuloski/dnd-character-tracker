@@ -43,7 +43,23 @@ DAMAGE_OVERRIDES = {
     "Dimension Door": "",
     "Teleport": "",
     "Meld into Stone": "",
+    # Dice that hurt the caster or come from a side effect, not the spell's hit.
+    "Contact Other Plane": "",
+    "Web": "",
+    # Damages that are alternatives (or vary by round), not a sum.
+    "Spirit Guardians": "3d8 radiant or 3d8 necrotic",
+    "Fire Shield": "2d8 fire or 2d8 cold",
+    "Wall of Thorns": "7d8 piercing or 7d8 slashing",
+    "Prismatic Spray": "10d6 (fire, acid, lightning, poison or cold)",
+    "Prismatic Wall": "10d6 (fire, acid, lightning, poison or cold)",
+    "Storm of Vengeance": (
+        "varies by round: 2d6 thunder, 1d6 acid, 10d6 lightning, "
+        "2d6 bludgeoning, 1d6 cold"
+    ),
 }
+# Saves that are not the caster's way of hitting an enemy: Light only checks a
+# hostile creature's held object, Contact Other Plane is the caster's own save.
+SAVE_OVERRIDES = {"Light": None, "Contact Other Plane": None}
 SAVE_NAMES = {
     "Strength": "str", "Dexterity": "dex", "Constitution": "con",
     "Intelligence": "int_", "Wisdom": "wis", "Charisma": "cha",
@@ -86,8 +102,12 @@ def _combat_fields(name: str, range_text: str, text: str) -> dict:
     damage = " + ".join(parts)
     if name in DAMAGE_OVERRIDES:
         damage = DAMAGE_OVERRIDES[name]
-    damage_type = damage.split(" ")[1] if damage else ""
+    first_type = re.search(DAMAGE_TYPES, damage)
+    damage_type = first_type.group(0) if first_type else ""
     sv = SAVE_RE.search(text)
+    save = SAVE_NAMES[sv.group(1)] if sv else None
+    if name in SAVE_OVERRIDES:
+        save = SAVE_OVERRIDES[name]
     # Sizes in the description (a 5-foot cube of mist, a 20-foot light) only
     # count as an area for spells that hit creatures; the range line always does.
     area = AREA_RE.search(range_text)
@@ -96,7 +116,7 @@ def _combat_fields(name: str, range_text: str, text: str) -> dict:
     return {
         "damage": damage,
         "damageType": damage_type,
-        "save": SAVE_NAMES[sv.group(1)] if sv else None,
+        "save": save,
         "attackRoll": bool(ATTACK_RE.search(text)),
         "areaShape": AREA_SHAPES[area.group(2)] if area else "none",
         "areaSize": f"{area.group(1)} ft" if area else "",
@@ -192,7 +212,7 @@ def _parse_block(block: str) -> dict:
 
 
 def parse_file(text: str) -> list:
-    text = text.replace("­", "").replace("\r\n", "\n")
+    text = text.replace(chr(0xAD), "").replace(chr(0xA0), " ").replace(chr(13) + chr(10), chr(10))
     blocks = re.split(r"(?m)^(?=#### )", text)
     return [_parse_block(b) for b in blocks if b.startswith("#### ")]
 
