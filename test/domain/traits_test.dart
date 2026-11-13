@@ -238,4 +238,82 @@ void main() {
       });
     });
   });
+
+  group('trait validation', () {
+    test('traitProblem names the reason a trait is refused', () {
+      expect(traitProblem(const Feature('', 'x')), 'Give the trait a name.');
+      expect(traitProblem(const Feature('  ', 'x')), 'Give the trait a name.');
+      expect(
+        traitProblem(const Feature(' metamagic ', '')),
+        'Metamagic is a built-in feature; use its Choose button.',
+      );
+      expect(traitProblem(const Feature('Darkvision', '60 ft')), isNull);
+    });
+
+    test('createCharacter drops invalid traits and trims the rest', () {
+      final c = createCharacter(
+        name: 'T',
+        race: 'Human',
+        className: 'Fighter',
+        level: 1,
+        abilities: standardArray,
+        starterGear: false,
+        traits: [
+          const Feature('Metamagic', 'hijack'),
+          const Feature('   ', 'blank'),
+          const Feature(' Darkvision ', '60 ft', pinned: ' Darkvision 60 ft '),
+        ],
+      );
+      expect(
+        c.features.any((f) => f.name.toLowerCase() == 'metamagic'),
+        isFalse,
+      );
+      expect(c.features.last.name, 'Darkvision');
+      expect(c.features.last.pinned, 'Darkvision 60 ft');
+      expect(c.features.length, classTemplates['Fighter']!.features.length + 1);
+    });
+  });
+
+  group('level up and edited class features', () {
+    test('levelling an existing class does not bring back edits', () {
+      final base = createCharacter(
+        name: 'T',
+        race: 'Human',
+        className: 'Ranger',
+        level: 3,
+        abilities: standardArray,
+        starterGear: false,
+      );
+      final edited = base.copyWith(
+        features: [
+          for (final f in base.features)
+            if (f.name == 'Natural Explorer')
+              ...const <Feature>[] // deleted by the player
+            else if (f.name == 'Favored Enemy')
+              f.copyWith(name: 'Favored Enemy (Undead)')
+            else
+              f,
+        ],
+      );
+      final names = [for (final f in edited.features) f.name];
+      final r = levelUp(edited, 'Ranger');
+      expect([for (final f in r.character.features) f.name], names);
+    });
+
+    test('taking a new class still adds the new class features', () {
+      final base = createCharacter(
+        name: 'T',
+        race: 'Human',
+        className: 'Fighter',
+        level: 3,
+        abilities: standardArray,
+        starterGear: false,
+      );
+      final r = levelUp(base, 'Ranger');
+      expect(
+        r.character.features.any((f) => f.name == 'Favored Enemy'),
+        isTrue,
+      );
+    });
+  });
 }

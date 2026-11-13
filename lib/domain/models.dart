@@ -929,6 +929,23 @@ class Feature {
   );
 }
 
+/// Name of the built-in Sorcerer Metamagic entry (it has its own picker).
+const metamagicFeatureName = 'Metamagic';
+const metamagicFeatureMessage =
+    'Metamagic is a built-in feature; use its Choose button.';
+const traitNeedsNameMessage = 'Give the trait a name.';
+
+/// Why [f] can't be saved as a hand-typed trait, or null when it can. One
+/// rule for the editor, the actions and character creation.
+String? traitProblem(Feature f) {
+  final name = f.name.trim();
+  if (name.isEmpty) return traitNeedsNameMessage;
+  if (name.toLowerCase() == metamagicFeatureName.toLowerCase()) {
+    return metamagicFeatureMessage;
+  }
+  return null;
+}
+
 class Character {
   const Character({
     required this.id,

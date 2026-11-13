@@ -403,6 +403,41 @@ void main() {
     await db.close();
   });
 
+  testWidgets('the trait editor refuses a blank or reserved name and keeps '
+      'what was typed', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('New character'));
+    await tester.pumpAndSettle();
+    await scrollTo(tester, find.text('Add trait'));
+    await tester.tap(find.text('Add trait'));
+    await tester.pumpAndSettle();
+    final dialog = find.byType(AlertDialog);
+    Finder inDialog(Finder f) => find.descendant(of: dialog, matching: f);
+
+    await tester.tap(inDialog(find.text('Save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Give the trait a name.'), findsOneWidget);
+    expect(dialog, findsOneWidget);
+
+    await tester.enterText(
+      inDialog(find.widgetWithText(TextField, 'Name')),
+      'Metamagic',
+    );
+    await tester.enterText(
+      inDialog(find.widgetWithText(TextField, 'Description')),
+      'keep me',
+    );
+    await tester.tap(inDialog(find.text('Save')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Metamagic is a built-in feature; use its Choose button.'),
+      findsOneWidget,
+    );
+    expect(dialog, findsOneWidget);
+    expect(find.text('keep me'), findsOneWidget);
+    await db.close();
+  });
+
   testWidgets('equipment rows use dark ink on the parchment panel', (
     tester,
   ) async {

@@ -43,20 +43,22 @@ class _FeatureEditorDialogState extends State<_FeatureEditorDialog> {
     super.dispose();
   }
 
+  /// Why the last Save was refused, shown under the Name field.
+  String? _problem;
+
   void _save() {
-    final name = _name.text.trim();
-    if (name.isEmpty) return;
-    Navigator.pop(
-      context,
-      FeatureEdit.save(
-        Feature(
-          name,
-          _text.text.trim(),
-          source: _source,
-          pinned: _pinned.text.trim(),
-        ),
-      ),
+    final feature = Feature(
+      _name.text.trim(),
+      _text.text.trim(),
+      source: _source,
+      pinned: _pinned.text.trim(),
     );
+    final problem = traitProblem(feature);
+    if (problem != null) {
+      setState(() => _problem = problem);
+      return;
+    }
+    Navigator.pop(context, FeatureEdit.save(feature));
   }
 
   @override
@@ -74,7 +76,13 @@ class _FeatureEditorDialogState extends State<_FeatureEditorDialog> {
               TextField(
                 controller: _name,
                 autofocus: !editing,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  errorText: _problem,
+                ),
+                onChanged: (_) {
+                  if (_problem != null) setState(() => _problem = null);
+                },
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 12),

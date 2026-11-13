@@ -1063,25 +1063,19 @@ ActionResult setMetamagic(Character c, Set<String> chosen) {
 
 // ---------------------------------------------------------------- Traits
 
-const _metamagicName = 'Metamagic';
-const _metamagicBlocked =
-    'Metamagic is a built-in feature; use its Choose button.';
 const _missingTrait = 'That trait no longer exists.';
 
 /// Trims [f]. Returns the cleaned feature, or the reason it was refused.
 (Feature?, String?) _cleanFeature(Feature f) {
-  final name = f.name.trim();
-  if (name.isEmpty) return (null, 'Give the trait a name.');
-  if (name.toLowerCase() == _metamagicName.toLowerCase()) {
-    return (null, _metamagicBlocked);
-  }
-  return (f.copyWith(name: name, pinned: f.pinned.trim()), null);
+  final problem = traitProblem(f);
+  if (problem != null) return (null, problem);
+  return (f.copyWith(name: f.name.trim(), pinned: f.pinned.trim()), null);
 }
 
 bool _validFeatureIndex(Character c, int index) =>
     index >= 0 && index < c.features.length;
 
-bool _isMetamagic(Feature f) => f.name == _metamagicName;
+bool _isMetamagic(Feature f) => f.name == metamagicFeatureName;
 
 ActionResult addFeature(Character c, Feature f) {
   final (clean, problem) = _cleanFeature(f);
@@ -1099,7 +1093,7 @@ ActionResult editFeature(Character c, int index, Feature f) {
     return ActionResult.blocked(c, _missingTrait);
   }
   if (_isMetamagic(c.features[index])) {
-    return ActionResult.blocked(c, _metamagicBlocked);
+    return ActionResult.blocked(c, metamagicFeatureMessage);
   }
   final (clean, problem) = _cleanFeature(f);
   if (clean == null) return ActionResult.blocked(c, problem!);
@@ -1116,7 +1110,7 @@ ActionResult removeFeature(Character c, int index) {
     return ActionResult.blocked(c, _missingTrait);
   }
   final f = c.features[index];
-  if (_isMetamagic(f)) return ActionResult.blocked(c, _metamagicBlocked);
+  if (_isMetamagic(f)) return ActionResult.blocked(c, metamagicFeatureMessage);
   return ActionResult(
     c.copyWith(features: [...c.features]..removeAt(index)),
     'Removed trait: ${f.name}',
@@ -1226,9 +1220,14 @@ ActionResult levelUp(Character c, String className, {String subclass = ''}) {
     if (resources.any((r) => r.id == rt.id)) continue;
     resources.add(rt.build(className, (r) => maxOf(out, r)));
   }
+  // Class features are only granted when the class is first taken. Adding
+  // them again on later levels would undo features the player edited or
+  // deleted.
   final features = [...c.features];
-  for (final f in template.features) {
-    if (!features.any((x) => x.name == f.name)) features.add(f);
+  if (existing == null) {
+    for (final f in template.features) {
+      if (!features.any((x) => x.name == f.name)) features.add(f);
+    }
   }
   out = out.copyWith(resources: resources, features: features);
 
