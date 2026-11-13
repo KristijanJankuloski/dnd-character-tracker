@@ -21,6 +21,39 @@ LEVEL_RE = re.compile(
 )
 HIGHER_RE = re.compile(r"^\*\*\*At Higher Levels\*\*\*\.?\s*(.*)$", re.S)
 TABLE_SEPARATOR_RE = re.compile(r"^\|[-:| ]+\|$")
+DAMAGE_TYPES = (
+    "acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|"
+    "psychic|radiant|slashing|thunder"
+)
+DAMAGE_RE = re.compile(rf"(\d+d\d+(?: ?\+ ?\d+)?) ({DAMAGE_TYPES}) damage")
+# A save the spell forces on a creature; "advantage on Dexterity saving
+# throws" and similar do not count.
+SAVE_RE = re.compile(
+    r"(?i:make|makes|succeed on|succeeds on|fails?)\s+(?:an?\s+|a successful\s+)?"
+    r"(?:DC \d+\s+)?"
+    r"(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throws?"
+)
+# Spells whose damage the text does not state as "NdM type damage", or whose
+# matched dice are a side effect (a mishap, a stress cost), not the spell's.
+DAMAGE_OVERRIDES = {
+    "Delayed Blast Fireball": "12d6 fire",
+    "Spiritual Weapon": "1d8 force",
+    "Guardian of Faith": "20 radiant",
+    "Wish": "",
+    "Dimension Door": "",
+    "Teleport": "",
+    "Meld into Stone": "",
+}
+SAVE_NAMES = {
+    "Strength": "str", "Dexterity": "dex", "Constitution": "con",
+    "Intelligence": "int_", "Wisdom": "wis", "Charisma": "cha",
+}
+ATTACK_RE = re.compile(r"\b(?:ranged|melee) spell attack\b")
+AREA_RE = re.compile(r"(\d+)-foot[- ](radius|sphere|cone|line|cube|cylinder)")
+AREA_SHAPES = {
+    "radius": "radius", "sphere": "radius", "cone": "cone", "line": "line",
+    "cube": "cube", "cylinder": "cylinder",
+}
 
 
 def slugify(name: str) -> str:
@@ -41,6 +74,33 @@ def _casting_kind(text: str) -> str:
     if t.startswith("1 action"):
         return "action"
     return "other"
+
+
+def _combat_fields(name: str, range_text: str, text: str) -> dict:
+    """Damage, save, attack and area read from the description text."""
+    seen, parts = set(), []
+    for dice, kind in DAMAGE_RE.findall(text):
+        if kind not in seen:
+            seen.add(kind)
+            parts.append(f"{dice.replace(' ', '')} {kind}")
+    damage = " + ".join(parts)
+    if name in DAMAGE_OVERRIDES:
+        damage = DAMAGE_OVERRIDES[name]
+    damage_type = damage.split(" ")[1] if damage else ""
+    sv = SAVE_RE.search(text)
+    # Sizes in the description (a 5-foot cube of mist, a 20-foot light) only
+    # count as an area for spells that hit creatures; the range line always does.
+    area = AREA_RE.search(range_text)
+    if not area and (damage or sv):
+        area = AREA_RE.search(text)
+    return {
+        "damage": damage,
+        "damageType": damage_type,
+        "save": SAVE_NAMES[sv.group(1)] if sv else None,
+        "attackRoll": bool(ATTACK_RE.search(text)),
+        "areaShape": AREA_SHAPES[area.group(2)] if area else "none",
+        "areaSize": f"{area.group(1)} ft" if area else "",
+    }
 
 
 def _table(lines):
@@ -112,6 +172,7 @@ def _parse_block(block: str) -> dict:
 
     casting = " ".join(header.get("Casting Time", "").split())
     duration = header.get("Duration", "").rstrip(".")
+    body_text = "\n\n".join(p for p in text_paras if p)
     return {
         "id": "srd-" + slugify(name),
         "name": name,
@@ -124,7 +185,8 @@ def _parse_block(block: str) -> dict:
         "duration": duration,
         "concentration": duration.lower().startswith("concentration"),
         "ritual": ritual,
-        "text": "\n\n".join(p for p in text_paras if p),
+        **_combat_fields(name, header.get("Range", ""), body_text),
+        "text": body_text,
         "higherLevels": "\n\n".join(higher),
     }
 
@@ -143,12 +205,47 @@ def collect(spells_dir: str) -> list:
     return spells
 
 
+def validate(spells: list, expected_count: int) -> list:
+    """Returns a list of problems; empty means the catalog looks sound."""
+    problems = []
+    if len(spells) != expected_count:
+        problems.append(f"count {len(spells)} != expected {expected_count}")
+    seen = set()
+    for s in spells:
+        name = s.get("name", "?")
+        if s["id"] in seen:
+            problems.append(f"duplicate id {s['id']}")
+        seen.add(s["id"])
+        for key in ("name", "range", "duration", "castingTimeText", "text"):
+            if not s.get(key):
+                problems.append(f"{name}: empty {key}")
+        if len(s.get("range", "")) > 60:
+            problems.append(f"{name}: range too long ({len(s['range'])} chars)")
+        if not 0 <= s["level"] <= 9:
+            problems.append(f"{name}: level {s['level']} outside 0-9")
+        if s["save"] not in (None, *SAVE_NAMES.values()):
+            problems.append(f"{name}: bad save {s['save']!r}")
+    return problems
+
+
+def count_headings(spells_dir: str) -> int:
+    n = 0
+    for path in glob.glob(os.path.join(spells_dir, "Spells_*.md")):
+        with open(path, encoding="utf-8") as f:
+            n += sum(1 for line in f if line.startswith("#### "))
+    return n
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if len(argv) != 2:
         print(__doc__)
         return 2
     spells = collect(argv[0])
+    problems = validate(spells, count_headings(argv[0]))
+    if problems:
+        print("\n".join(problems))
+        return 1
     out = {"source": "SRD 5.1 (2014)", "license": "CC-BY-4.0", "spells": spells}
     with open(argv[1], "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, indent=2, ensure_ascii=False)
