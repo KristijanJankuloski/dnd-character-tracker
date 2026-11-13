@@ -7,8 +7,11 @@ import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../helpers/srd_catalog.dart';
 
 void main() {
+  setUpAll(loadSrdCatalogForTests);
+
   late AppDatabase db;
   late DriftCharacterRepository repo;
 
