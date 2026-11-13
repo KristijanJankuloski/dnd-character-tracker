@@ -4,6 +4,7 @@ import 'package:jjs_character_tracker/core/widgets.dart';
 import 'package:jjs_character_tracker/data/database.dart';
 import 'package:jjs_character_tracker/data/drift_repository.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
+import 'package:jjs_character_tracker/domain/class_templates.dart';
 import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -323,6 +324,82 @@ void main() {
     await tester.tap(find.textContaining('Metamagic ('));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
+    await db.close();
+  });
+
+  Future<void> addDarkvisionOnCreateScreen(WidgetTester tester) async {
+    await tester.tap(find.text('New character'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Mellow');
+    await scrollTo(tester, find.text('Add trait'));
+    await tester.tap(find.text('Add trait'));
+    await tester.pumpAndSettle();
+    final dialog = find.byType(AlertDialog);
+    await tester.enterText(
+      find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(TextField, 'Name'),
+      ),
+      'Darkvision',
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Species'));
+    await tester.enterText(
+      find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(
+          TextField,
+          'Show in Senses & resistances as (optional)',
+        ),
+      ),
+      'Darkvision 60 ft',
+    );
+    await tester.pump();
+    await tester.tap(find.descendant(of: dialog, matching: find.text('Save')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<Character> createAndLoadMellow(WidgetTester tester) async {
+    await scrollTo(tester, find.text('Create character'));
+    await tester.tap(find.text('Create character'));
+    await settle(tester);
+    await tester.pumpAndSettle();
+    final saved = await tester.runAsync(() async {
+      final all = await repo.syncSummaries();
+      return repo.get(all.firstWhere((s) => s.name == 'Mellow').id);
+    });
+    return saved!;
+  }
+
+  testWidgets('traits added on the create screen are saved with the '
+      'character', (tester) async {
+    await pumpApp(tester);
+    await addDarkvisionOnCreateScreen(tester);
+    expect(find.text('Darkvision'), findsOneWidget);
+    final saved = await createAndLoadMellow(tester);
+    final t = saved.features.last;
+    expect(t.name, 'Darkvision');
+    expect(t.source, FeatureSource.species);
+    expect(t.pinned, 'Darkvision 60 ft');
+    expect(
+      saved.features.length,
+      classTemplates['Sorcerer']!.features.length + 1,
+    );
+    await db.close();
+  });
+
+  testWidgets('a trait added on the create screen can be removed before '
+      'saving', (tester) async {
+    await pumpApp(tester);
+    await addDarkvisionOnCreateScreen(tester);
+    await scrollTo(tester, find.text('Darkvision'));
+    await tester.tap(find.text('Darkvision'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Darkvision'), findsNothing);
+    final saved = await createAndLoadMellow(tester);
+    expect(saved.features.length, classTemplates['Sorcerer']!.features.length);
+    expect(saved.features.any((f) => f.name == 'Darkvision'), isFalse);
     await db.close();
   });
 

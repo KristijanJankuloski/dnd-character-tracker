@@ -9,6 +9,7 @@ import '../../domain/class_templates.dart';
 import '../../domain/models.dart';
 import '../../domain/repository.dart';
 import '../../domain/srd_data.dart';
+import '../character/feature_editor.dart';
 
 const _starterSpells = <String, List<String>>{
   'Sorcerer': [
@@ -82,6 +83,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
   int _speed = 30;
   final Map<Ability, int> _scores = Map.of(standardArray);
   final Set<Skill> _skills = {};
+  final List<Feature> _traits = [];
   bool _starterSpellsOn = true;
   bool _starterGear = true;
   bool _saving = false;
@@ -114,6 +116,23 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
     ];
   }
 
+  Future<void> _addTrait() async {
+    final f = (await showFeatureEditor(context))?.feature;
+    if (f != null) setState(() => _traits.add(f));
+  }
+
+  Future<void> _editTrait(int index) async {
+    final result = await showFeatureEditor(context, initial: _traits[index]);
+    if (result == null) return;
+    setState(() {
+      if (result.delete) {
+        _traits.removeAt(index);
+      } else {
+        _traits[index] = result.feature!;
+      }
+    });
+  }
+
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -136,6 +155,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
       spells: _spells(),
       starterGear: _starterGear,
       baseSpeed: _speed,
+      traits: _traits,
     );
     await repo.create(c);
     router.go('/c/${c.id}');
@@ -184,6 +204,35 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
           TextField(
             controller: _subclass,
             decoration: const InputDecoration(labelText: 'Subclass (optional)'),
+          ),
+          const SectionLabel('Traits (optional)'),
+          const Text(
+            'Species, background or subclass traits, typed in by hand. '
+            'Pin one to show it on the Sheet.',
+            style: TextStyle(color: Palette.textDim),
+          ),
+          for (var i = 0; i < _traits.length; i++)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(_traits[i].name),
+              subtitle: Text(
+                [
+                  _traits[i].source.label,
+                  if (_traits[i].pinned.isNotEmpty) _traits[i].pinned,
+                ].join(' · '),
+              ),
+              trailing: _traits[i].pinned.isNotEmpty
+                  ? const Icon(Icons.push_pin, size: 16)
+                  : null,
+              onTap: () => _editTrait(i),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add trait'),
+              onPressed: _addTrait,
+            ),
           ),
           const SectionLabel('Base speed'),
           Wrap(
