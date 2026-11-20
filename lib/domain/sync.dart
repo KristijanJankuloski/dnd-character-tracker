@@ -23,7 +23,8 @@ bool isSyncId(String id) => Uuid.isValidUUID(fromString: id);
 
 /// Version of the character format both devices must share to sync.
 /// 2: features carry a source and a pinned label (traits).
-const syncSchemaVersion = 2;
+/// 3: characters carry a list of feats.
+const syncSchemaVersion = 3;
 
 /// Settings that belong to one device and are neither synced nor part of the
 /// fingerprint, so flipping them never counts as an edit worth a conflict.

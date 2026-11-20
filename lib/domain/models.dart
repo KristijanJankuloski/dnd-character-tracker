@@ -929,6 +929,58 @@ class Feature {
   );
 }
 
+/// A feat: text only (no automated effects). Characters keep their own copy,
+/// so a feat survives catalogue edits and travels with the character through
+/// export, QR sharing and sync.
+class Feat {
+  const Feat({
+    required this.id,
+    required this.name,
+    this.text = '',
+    this.prerequisite = '',
+    this.source = '',
+  });
+
+  final String id;
+  final String name;
+  final String text;
+
+  /// Free text such as "Strength 13 or higher". Never checked by the app.
+  final String prerequisite;
+
+  /// Where the feat comes from, e.g. "PHB p. 165" or "Homebrew".
+  final String source;
+
+  Feat copyWith({
+    String? name,
+    String? text,
+    String? prerequisite,
+    String? source,
+  }) => Feat(
+    id: id,
+    name: name ?? this.name,
+    text: text ?? this.text,
+    prerequisite: prerequisite ?? this.prerequisite,
+    source: source ?? this.source,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'text': text,
+    'prerequisite': prerequisite,
+    'source': source,
+  };
+
+  factory Feat.fromJson(Map<String, Object?> j) => Feat(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    text: (j['text'] as String?) ?? '',
+    prerequisite: (j['prerequisite'] as String?) ?? '',
+    source: (j['source'] as String?) ?? '',
+  );
+}
+
 /// Name of the built-in Sorcerer Metamagic entry (it has its own picker).
 const metamagicFeatureName = 'Metamagic';
 const metamagicFeatureMessage =
@@ -980,6 +1032,7 @@ class Character {
     this.wallet = const Wallet(),
     this.modifiers = const [],
     this.features = const [],
+    this.feats = const [],
     this.flags = const {},
     this.notes = '',
     this.turn = const TurnState(),
@@ -1032,6 +1085,9 @@ class Character {
   /// Manual or temporary modifiers (feats, spells, potions).
   final List<Effect> modifiers;
   final List<Feature> features;
+
+  /// Feats the character has taken (text only).
+  final List<Feat> feats;
 
   /// Switches such as `mageArmor`, `draconicResilience`.
   final Set<String> flags;
@@ -1088,6 +1144,7 @@ class Character {
     Wallet? wallet,
     List<Effect>? modifiers,
     List<Feature>? features,
+    List<Feat>? feats,
     Set<String>? flags,
     String? notes,
     TurnState? turn,
@@ -1133,6 +1190,7 @@ class Character {
     wallet: wallet ?? this.wallet,
     modifiers: modifiers ?? this.modifiers,
     features: features ?? this.features,
+    feats: feats ?? this.feats,
     flags: flags ?? this.flags,
     notes: notes ?? this.notes,
     turn: turn ?? this.turn,
@@ -1179,6 +1237,7 @@ class Character {
     'wallet': wallet.toJson(),
     'modifiers': modifiers.map((e) => e.toJson()).toList(),
     'features': features.map((f) => f.toJson()).toList(),
+    'feats': feats.map((f) => f.toJson()).toList(),
     'flags': flags.toList(),
     'notes': notes,
     'turn': turn.toJson(),
@@ -1250,6 +1309,7 @@ class Character {
           : Wallet.fromJson((j['wallet'] as Map).cast()),
       modifiers: list('modifiers', Effect.fromJson),
       features: list('features', Feature.fromJson),
+      feats: list('feats', Feat.fromJson),
       flags: ((j['flags'] as List?) ?? const []).cast<String>().toSet(),
       notes: (j['notes'] as String?) ?? '',
       turn: j['turn'] == null

@@ -369,6 +369,28 @@ class FeatureEdited extends CharacterAction {
   act.ActionResult run(Character c) => act.editFeature(c, index, feature);
 }
 
+class FeatAdded extends CharacterAction {
+  const FeatAdded(this.feat);
+  final Feat feat;
+  @override
+  act.ActionResult run(Character c) => act.addFeat(c, feat);
+}
+
+class FeatEdited extends CharacterAction {
+  const FeatEdited(this.id, this.feat);
+  final String id;
+  final Feat feat;
+  @override
+  act.ActionResult run(Character c) => act.editFeat(c, id, feat);
+}
+
+class FeatRemoved extends CharacterAction {
+  const FeatRemoved(this.id);
+  final String id;
+  @override
+  act.ActionResult run(Character c) => act.removeFeat(c, id);
+}
+
 class FeatureRemoved extends CharacterAction {
   const FeatureRemoved(this.index);
   final int index;

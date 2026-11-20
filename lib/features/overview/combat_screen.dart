@@ -10,6 +10,7 @@ import '../character/character_bloc.dart';
 import '../character/character_event.dart';
 import '../character/feature_editor.dart';
 import '../character/loaded_builder.dart';
+import '../feats/feats_panel.dart';
 import '../resources/resources_panel.dart';
 
 class CombatScreen extends StatelessWidget {
@@ -27,6 +28,7 @@ class CombatScreen extends StatelessWidget {
           child: Column(children: [ResourcesPanel(state: s)]),
         );
         final features = FeaturesPanel(state: s);
+        final feats = FeatsPanel(state: s);
         if (tablet) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -41,6 +43,8 @@ class CombatScreen extends StatelessWidget {
                       resources,
                       const SizedBox(height: 12),
                       features,
+                      const SizedBox(height: 12),
+                      feats,
                     ],
                   ),
                 ),
@@ -60,6 +64,8 @@ class CombatScreen extends StatelessWidget {
             resources,
             const SizedBox(height: 12),
             features,
+            const SizedBox(height: 12),
+            feats,
           ],
         );
       },

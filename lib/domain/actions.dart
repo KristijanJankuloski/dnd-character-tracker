@@ -1117,6 +1117,61 @@ ActionResult removeFeature(Character c, int index) {
   );
 }
 
+// ----------------------------------------------------------------- Feats
+
+const _missingFeat = 'That feat no longer exists.';
+const featNeedsNameMessage = 'Give the feat a name.';
+
+String _featKey(String name) => name.trim().toLowerCase();
+
+/// Adds [f] to the character. Refuses a nameless feat and one the character
+/// already has (same name, ignoring case).
+ActionResult addFeat(Character c, Feat f) {
+  final name = f.name.trim();
+  if (name.isEmpty) return ActionResult.blocked(c, featNeedsNameMessage);
+  if (c.feats.any((x) => _featKey(x.name) == _featKey(name))) {
+    return ActionResult.blocked(c, '$name is already on this character.');
+  }
+  return ActionResult(
+    c.copyWith(
+      feats: [
+        ...c.feats,
+        f.copyWith(name: name),
+      ],
+    ),
+    'Added feat: $name',
+  );
+}
+
+/// Replaces the feat with [id] by [f] (keeping the id).
+ActionResult editFeat(Character c, String id, Feat f) {
+  final i = c.feats.indexWhere((x) => x.id == id);
+  if (i < 0) return ActionResult.blocked(c, _missingFeat);
+  final name = f.name.trim();
+  if (name.isEmpty) return ActionResult.blocked(c, featNeedsNameMessage);
+  if (c.feats.any((x) => x.id != id && _featKey(x.name) == _featKey(name))) {
+    return ActionResult.blocked(c, '$name is already on this character.');
+  }
+  final feats = [...c.feats];
+  feats[i] = Feat(
+    id: id,
+    name: name,
+    text: f.text,
+    prerequisite: f.prerequisite,
+    source: f.source,
+  );
+  return ActionResult(c.copyWith(feats: feats), 'Edited feat: $name');
+}
+
+ActionResult removeFeat(Character c, String id) {
+  final i = c.feats.indexWhere((x) => x.id == id);
+  if (i < 0) return ActionResult.blocked(c, _missingFeat);
+  return ActionResult(
+    c.copyWith(feats: [...c.feats]..removeAt(i)),
+    'Removed feat: ${c.feats[i].name}',
+  );
+}
+
 ActionResult setSkill(Character c, Skill skill) {
   final cur = c.skills[skill] ?? Proficiency.none;
   final next = Proficiency.values[(cur.index + 1) % Proficiency.values.length];

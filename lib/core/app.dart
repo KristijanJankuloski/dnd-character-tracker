@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/nearby_discovery.dart';
 import '../data/character_files.dart';
+import '../data/feat_library.dart';
 import '../data/spell_library.dart';
 import '../domain/repository.dart';
 import '../domain/sync.dart';
@@ -11,6 +12,7 @@ import '../features/character/character_page.dart';
 import '../features/list/character_list_screen.dart';
 import '../features/list/create_character_screen.dart';
 import '../features/share/receive_screen.dart';
+import '../features/feats/feat_catalogue_screen.dart';
 import '../features/spells/spell_catalogue_screen.dart';
 import '../features/share/share_screen.dart';
 import '../features/sync/sync_screen.dart';
@@ -25,6 +27,7 @@ GoRouter buildRouter({PeerDiscovery Function()? discoveryFactory}) => GoRouter(
       builder: (_, _) => SyncScreen(discoveryFactory: discoveryFactory),
     ),
     GoRoute(path: '/spells', builder: (_, _) => const SpellCatalogueScreen()),
+    GoRoute(path: '/feats', builder: (_, _) => const FeatCatalogueScreen()),
     GoRoute(path: '/receive', builder: (_, _) => const ReceiveScreen()),
     GoRoute(
       path: '/share/:id',
@@ -45,6 +48,7 @@ class DnDApp extends StatefulWidget {
     required this.repository,
     this.syncStore,
     this.spellLibrary,
+    this.featLibrary,
     this.characterFiles = const CharacterFiles(),
     this.discoveryFactory,
   });
@@ -55,6 +59,9 @@ class DnDApp extends StatefulWidget {
 
   /// Enables importing a spell list when given.
   final SpellLibrary? spellLibrary;
+
+  /// Enables importing and editing a feat list when given.
+  final FeatLibrary? featLibrary;
 
   /// Picks and saves character backup files. Replaceable in tests.
   final CharacterFiles characterFiles;
@@ -79,13 +86,16 @@ class _DnDAppState extends State<DnDApp> {
         value: widget.syncStore,
         child: RepositoryProvider<SpellLibrary?>.value(
           value: widget.spellLibrary,
-          child: RepositoryProvider<CharacterFiles>.value(
-            value: widget.characterFiles,
-            child: MaterialApp.router(
-              title: 'JJs Character Tracker',
-              theme: buildTheme(),
-              routerConfig: _router,
-              debugShowCheckedModeBanner: false,
+          child: RepositoryProvider<FeatLibrary?>.value(
+            value: widget.featLibrary,
+            child: RepositoryProvider<CharacterFiles>.value(
+              value: widget.characterFiles,
+              child: MaterialApp.router(
+                title: 'JJs Character Tracker',
+                theme: buildTheme(),
+                routerConfig: _router,
+                debugShowCheckedModeBanner: false,
+              ),
             ),
           ),
         ),

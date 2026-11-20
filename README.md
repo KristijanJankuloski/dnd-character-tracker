@@ -74,4 +74,27 @@ python tool/build_spell_catalog.py "<path to Spells_A-Z folder>" my_spells.json
 python -m unittest discover -s tool -p "test_*.py"
 ```
 
+## Feats
+
+Feats are text only: a name, a description, an optional prerequisite and an optional source. The app does not apply their effects or check prerequisites. A character's **Feats** panel (on the Combat tab, under Features & traits) lists the feats it has. **Add feat** opens a picker with the feat catalogue plus **Create a custom feat**; tap a feat in the panel to edit or delete it. A character has at most one feat with a given name (ignoring case), and keeps its own copy, so editing the catalogue never changes it.
+
+Like spells, the app ships no feats. In the Characters screen's **⋮** menu, **Import feats** picks a `.json` file, validates it (errors are shown and nothing changes if it is invalid) and replaces the stored list. **Edit feat catalogue** lets you add, edit, delete and export feats (**Export catalogue**, the download icon). The file is an object with a `feats` list (a bare list also works); `source` and `license` are optional notes:
+
+```json
+{
+  "source": "My homebrew",
+  "feats": [
+    {
+      "id": "hb-quick-reflexes",
+      "name": "Quick Reflexes",
+      "prerequisite": "Dexterity 13 or higher",
+      "source": "Homebrew",
+      "text": "You gain a +2 bonus to initiative rolls."
+    }
+  ]
+}
+```
+
+Only `id` (unique text) and `name` are required. Feats are stored in the character, so character exports, QR sharing and nearby sync carry them. Older character files load with no feats. Two devices must both run a version that knows feats to sync (the sync format version is now 3).
+
 This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
