@@ -22,6 +22,10 @@ flutter test
 
 The rules engine in `lib/domain` is pure Dart and holds most of the tests. Repository and bloc tests use an in-memory Drift database, so they need `libsqlite3` on the machine.
 
+## Backing up characters
+
+On a character's Journal screen, **Export character** saves the character as a `<name>.json` file (you choose where). On the Characters screen, the **⋮** menu's **Import character** picks such a `.json` file and adds the character as a copy, so it never overwrites an existing one. Files that are not valid character backups are rejected with an explanation. The JSON format is the same as the old clipboard backup text, so previously copied backups can be saved into a `.json` file and imported.
+
 ## Spell data
 
 The app ships with no spell list. The DM supplies one: on the Characters screen open the **⋮** menu and choose **Import spells**, then pick a `.json` file. The list is validated (errors are shown and nothing changes if the file is invalid), saved on the device, and then used for spell suggestions for every character. Importing another file replaces the previous list. Until a file is imported the spell picker shows a hint, and custom spells can still be created by hand.

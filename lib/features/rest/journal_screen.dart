@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../data/character_files.dart';
 import '../../domain/actions.dart' as act;
 import '../../domain/class_templates.dart';
 import '../../domain/repository.dart';
@@ -107,16 +107,28 @@ class JournalScreen extends StatelessWidget {
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.copy),
-                    title: const Text('Copy backup JSON'),
+                    leading: const Icon(Icons.file_download_outlined),
+                    title: const Text('Export character'),
+                    subtitle: const Text('Save as a .json file'),
                     onTap: () async {
                       final repo = context.read<CharacterRepository>();
-                      final json = await repo.exportJson(c.id);
-                      await Clipboard.setData(ClipboardData(text: json));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      final files = context.read<CharacterFiles>();
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        final json = await repo.exportJson(c.id);
+                        final saved = await files.save(
+                          CharacterFiles.fileNameFor(c.name),
+                          json,
+                        );
+                        if (saved) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Exported ${c.name}.')),
+                          );
+                        }
+                      } catch (_) {
+                        messenger.showSnackBar(
                           const SnackBar(
-                            content: Text('Backup copied to the clipboard.'),
+                            content: Text('Could not save the file.'),
                           ),
                         );
                       }
