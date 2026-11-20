@@ -6,7 +6,6 @@ import 'package:jjs_character_tracker/data/character_files.dart';
 import 'package:jjs_character_tracker/data/database.dart';
 import 'package:jjs_character_tracker/data/drift_repository.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
-import 'package:jjs_character_tracker/domain/class_templates.dart';
 
 import '../helpers/srd_catalog.dart';
 
@@ -17,7 +16,6 @@ void main() {
 
   Future<void> importVia(WidgetTester tester, String? text) async {
     final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
     repo = DriftCharacterRepository(db);
     await tester.pumpWidget(
       DnDApp(
@@ -34,6 +32,7 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
+    await db.close();
   }
 
   testWidgets('Import character loads a valid file', (tester) async {
