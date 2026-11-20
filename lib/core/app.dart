@@ -11,6 +11,7 @@ import '../features/character/character_page.dart';
 import '../features/list/character_list_screen.dart';
 import '../features/list/create_character_screen.dart';
 import '../features/share/receive_screen.dart';
+import '../features/spells/spell_catalogue_screen.dart';
 import '../features/share/share_screen.dart';
 import '../features/sync/sync_screen.dart';
 import 'theme.dart';
@@ -23,6 +24,7 @@ GoRouter buildRouter({PeerDiscovery Function()? discoveryFactory}) => GoRouter(
       path: '/sync',
       builder: (_, _) => SyncScreen(discoveryFactory: discoveryFactory),
     ),
+    GoRoute(path: '/spells', builder: (_, _) => const SpellCatalogueScreen()),
     GoRoute(path: '/receive', builder: (_, _) => const ReceiveScreen()),
     GoRoute(
       path: '/share/:id',

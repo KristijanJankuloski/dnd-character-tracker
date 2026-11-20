@@ -5,17 +5,25 @@ import '../../domain/models.dart';
 import 'spell_detail_sheet.dart';
 
 /// Full-screen form for a hand-made spell. It carries every field an imported
-/// spell has. Pops the new [Spell] when saved.
+/// spell has. Pops the new [Spell] when saved. With [initial] it edits that
+/// spell instead (keeping its id), and [nameError] can reject a name, for
+/// example one that is already taken.
 class CustomSpellPage extends StatefulWidget {
-  const CustomSpellPage({super.key});
+  const CustomSpellPage({super.key, this.initial, this.nameError});
 
-  static Future<Spell?> open(BuildContext context) => Navigator.of(context)
-      .push<Spell>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => const CustomSpellPage(),
-        ),
-      );
+  final Spell? initial;
+  final String? Function(String name)? nameError;
+
+  static Future<Spell?> open(
+    BuildContext context, {
+    Spell? initial,
+    String? Function(String name)? nameError,
+  }) => Navigator.of(context).push<Spell>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => CustomSpellPage(initial: initial, nameError: nameError),
+    ),
+  );
 
   @override
   State<CustomSpellPage> createState() => _CustomSpellPageState();
@@ -44,6 +52,32 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
   AreaShape _shape = AreaShape.none;
 
   @override
+  void initState() {
+    super.initState();
+    final s = widget.initial;
+    if (s == null) return;
+    _name.text = s.name;
+    _school.text = s.school;
+    _castingText.text = s.castingTimeText;
+    _range.text = s.range;
+    _components.text = s.components;
+    _duration.text = s.duration;
+    _damage.text = s.damage;
+    _damageType.text = s.damageType;
+    _areaSize.text = s.areaSize;
+    _text.text = s.text;
+    _higher.text = s.higherLevels;
+    _level = s.level;
+    _time = s.castingTime;
+    _conc = s.concentration;
+    _ritual = s.ritual;
+    _attack = s.attackRoll;
+    _alwaysPrepared = s.alwaysPrepared;
+    _save = s.save;
+    _shape = s.areaShape;
+  }
+
+  @override
   void dispose() {
     for (final c in [
       _name,
@@ -63,6 +97,8 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
     super.dispose();
   }
 
+  bool get _editing => widget.initial != null;
+
   bool get _hasSize =>
       _shape != AreaShape.none && _shape != AreaShape.singleTarget;
 
@@ -72,7 +108,8 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
     Navigator.pop(
       context,
       Spell(
-        id: newId('spell'),
+        id: widget.initial?.id ?? newId('spell'),
+        prepared: widget.initial?.prepared ?? true,
         name: t(_name),
         level: _level,
         castingTime: _time,
@@ -107,8 +144,13 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Custom spell'),
-        actions: [TextButton(onPressed: _submit, child: const Text('Add'))],
+        title: Text(_editing ? 'Edit spell' : 'Custom spell'),
+        actions: [
+          TextButton(
+            onPressed: _submit,
+            child: Text(_editing ? 'Save' : 'Add'),
+          ),
+        ],
       ),
       // The body scrolls and pads for the keyboard itself.
       resizeToAvoidBottomInset: true,
@@ -126,11 +168,13 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
             children: [
               TextFormField(
                 controller: _name,
-                autofocus: true,
+                autofocus: !_editing,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Enter a name' : null,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Enter a name';
+                  return widget.nameError?.call(v.trim());
+                },
               ),
               _gap(),
               Row(
@@ -294,8 +338,7 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
                   for (final a in AreaShape.values)
                     DropdownMenuItem(value: a, child: Text(a.label)),
                 ],
-                onChanged: (v) =>
-                    setState(() => _shape = v ?? AreaShape.none),
+                onChanged: (v) => setState(() => _shape = v ?? AreaShape.none),
               ),
               if (_hasSize) ...[
                 _gap(),
@@ -330,7 +373,10 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              FilledButton(onPressed: _submit, child: const Text('Add spell')),
+              FilledButton(
+                onPressed: _submit,
+                child: Text(_editing ? 'Save spell' : 'Add spell'),
+              ),
             ],
           ),
         ),

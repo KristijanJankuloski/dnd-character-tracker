@@ -24,7 +24,7 @@ class SpellImportException implements Exception {
 /// Reads `{"source", "license", "spells": [Spell JSON...]}` (a bare list of
 /// spells is accepted too). Throws [SpellImportException] listing every
 /// problem found, so nothing is half-imported.
-List<Spell> parseSpellCatalog(String json) {
+List<Spell> parseSpellCatalog(String json, {bool allowEmpty = false}) {
   final Object? root;
   try {
     root = jsonDecode(json);
@@ -37,7 +37,7 @@ List<Spell> parseSpellCatalog(String json) {
       'Expected an object with a "spells" list, like {"spells": [...]}.',
     ]);
   }
-  if (list.isEmpty) {
+  if (list.isEmpty && !allowEmpty) {
     throw const SpellImportException(['The "spells" list is empty.']);
   }
   final problems = <String>[];
@@ -84,6 +84,18 @@ List<Spell> parseSpellCatalog(String json) {
   if (problems.isNotEmpty) throw SpellImportException(problems);
   return spells;
 }
+
+/// The file text for [spells]: `{"source", "license", "spells": [...]}`, the
+/// same shape Import spells reads. [source] and [license] are optional notes.
+String encodeSpellCatalog(
+  List<Spell> spells, {
+  String? source,
+  String? license,
+}) => const JsonEncoder.withIndent('  ').convert({
+  'source': ?source,
+  'license': ?license,
+  'spells': [for (final s in spells) s.toJson()],
+});
 
 /// Replaces the in-memory list (and with it the suggestions everywhere).
 void setSpellCatalog(List<Spell> spells) {

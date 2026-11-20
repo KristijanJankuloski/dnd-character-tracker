@@ -63,6 +63,10 @@ The file is an object with a `spells` list (a bare list of spells also works). `
 
 Only `id` (unique text), `name` and `level` (0 to 9, 0 = cantrip) are required; the other fields default to empty or false. `castingTime` is `action`, `bonusAction`, `reaction` or `other`, `save` is an ability name (`str`, `dex`, `con`, `int_`, `wis`, `cha`), and `areaShape` is `none` unless the spell has an area. Keep `id`s stable between versions of your file: characters remember the spells they already have by `id`.
 
+### Edit the spell catalogue
+
+Choose **Edit spell catalogue** in the same **⋮** menu to see every spell in the list, search it, filter by level, and add, edit or delete spells (deleting asks first). It uses the same form as custom spells, and spell names must be unique in the catalogue (ignoring case). Changes are saved on the device immediately and drive spell suggestions for every character. Characters keep their own copy of the spells they have learned, so editing or deleting a catalogue spell never changes them. **Export catalogue** (the download icon) saves the list as a `.json` file in the format above, including `source` and `license` if the imported file had them, which can be shared and imported again with **Import spells**.
+
 `tool/build_spell_catalog.py` can still generate a file in this format from Obsidian-style SRD notes:
 
 ```sh

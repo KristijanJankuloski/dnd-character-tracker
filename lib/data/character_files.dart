@@ -35,7 +35,7 @@ class CharacterFiles {
 
   static Future<bool> _saveJsonFile(String fileName, String json) async {
     final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save character',
+      dialogTitle: 'Save file',
       fileName: '$fileName.json',
       type: FileType.custom,
       allowedExtensions: const ['json'],

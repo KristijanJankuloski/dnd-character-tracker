@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jjs_character_tracker/data/spell_library.dart';
+import 'package:jjs_character_tracker/domain/models.dart';
 import 'package:jjs_character_tracker/domain/spell_catalog.dart';
 
 const _two =
@@ -42,11 +44,43 @@ void main() {
 
   test('an invalid file changes nothing', () async {
     await lib.import(_two);
-    await expectLater(lib.import('{"spells":[{"id":"x"}]}'),
-        throwsA(isA<SpellImportException>()));
+    await expectLater(
+      lib.import('{"spells":[{"id":"x"}]}'),
+      throwsA(isA<SpellImportException>()),
+    );
     expect(spellCatalog, hasLength(2));
     resetSpellCatalogForTests();
     await lib.load();
     expect(spellCatalog, hasLength(2));
+  });
+
+  test('save persists the whole list, keeps the notes, allows empty', () async {
+    await lib.import(
+      '{"source":"My notes","license":"OGL","spells":'
+      '[{"id":"a","name":"A","level":0}]}',
+    );
+    await lib.save(const [
+      Spell(id: 'a', name: 'A2', level: 0),
+      Spell(id: 'n', name: 'New', level: 2),
+    ]);
+    resetSpellCatalogForTests();
+    await lib.load();
+    expect(spellCatalog.map((s) => s.name), ['A2', 'New']);
+    final out = jsonDecode(await lib.exportJson()) as Map;
+    expect(out['source'], 'My notes');
+    expect(out['license'], 'OGL');
+
+    await lib.save(const []);
+    resetSpellCatalogForTests();
+    await lib.load();
+    expect(spellCatalog, isEmpty);
+  });
+
+  test('an exported catalogue can be imported again', () async {
+    await lib.import(_two);
+    final json = await lib.exportJson();
+    await lib.import(_one);
+    expect(await lib.import(json), 2);
+    expect(spellCatalog.map((s) => s.id), ['a', 'b']);
   });
 }

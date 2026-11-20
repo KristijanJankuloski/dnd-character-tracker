@@ -48,6 +48,7 @@ class _View extends StatelessWidget {
             onSelected: (v) {
               if (v == 'backup') _import(context);
               if (v == 'spells') _importSpells(context);
+              if (v == 'catalogue') context.push('/spells');
             },
             itemBuilder: (_) => [
               const PopupMenuItem(
@@ -62,6 +63,11 @@ class _View extends StatelessWidget {
                         ? 'Import spells'
                         : 'Import spells (${spellCatalog.length} loaded)',
                   ),
+                ),
+              if (context.read<SpellLibrary?>() != null)
+                const PopupMenuItem(
+                  value: 'catalogue',
+                  child: Text('Edit spell catalogue'),
                 ),
             ],
           ),
