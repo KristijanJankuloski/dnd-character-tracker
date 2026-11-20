@@ -6,7 +6,6 @@ import 'package:jjs_character_tracker/data/character_files.dart';
 import 'package:jjs_character_tracker/data/database.dart';
 import 'package:jjs_character_tracker/data/drift_repository.dart';
 import 'package:jjs_character_tracker/domain/character_factory.dart';
-import 'package:jjs_character_tracker/domain/class_templates.dart';
 
 import '../helpers/srd_catalog.dart';
 
