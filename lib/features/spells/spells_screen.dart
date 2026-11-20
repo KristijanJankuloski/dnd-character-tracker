@@ -218,7 +218,7 @@ class _SpellsScreenState extends State<SpellsScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Text(
-                    'No spells yet. Tap + to add from the SRD list or create your own.',
+                    'No spells yet. Tap + to add from your imported spell list or create your own.',
                   ),
                 ),
               for (final e in byLevel.entries) ...[

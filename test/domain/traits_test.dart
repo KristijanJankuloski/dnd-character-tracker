@@ -18,7 +18,7 @@ Character make({List<Feature> traits = const []}) => createCharacter(
 );
 
 void main() {
-  loadSrdCatalogForTests();
+  loadTestSpellCatalog();
 
   group('Feature data', () {
     test('feature JSON round trip keeps source and pinned', () {

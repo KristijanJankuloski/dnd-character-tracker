@@ -24,10 +24,45 @@ The rules engine in `lib/domain` is pure Dart and holds most of the tests. Repos
 
 ## Spell data
 
-The spell encyclopedia (`assets/data/srd_spells.json`, ~319 spells) is generated from SRD notes by a script. To rebuild it:
+The app ships with no spell list. The DM supplies one: on the Characters screen open the **⋮** menu and choose **Import spells**, then pick a `.json` file. The list is validated (errors are shown and nothing changes if the file is invalid), saved on the device, and then used for spell suggestions for every character. Importing another file replaces the previous list. Until a file is imported the spell picker shows a hint, and custom spells can still be created by hand.
+
+The file is an object with a `spells` list (a bare list of spells also works). `source` and `license` are optional notes for humans:
+
+```json
+{
+  "source": "My homebrew",
+  "spells": [
+    {
+      "id": "hb-ember-lance",
+      "name": "Ember Lance",
+      "level": 2,
+      "school": "Evocation",
+      "castingTime": "action",
+      "castingTimeText": "1 action",
+      "range": "60 feet",
+      "components": "V, S",
+      "duration": "Instantaneous",
+      "concentration": false,
+      "ritual": false,
+      "damage": "3d6 fire",
+      "damageType": "fire",
+      "save": "dex",
+      "attackRoll": false,
+      "areaShape": "none",
+      "areaSize": "",
+      "text": "A lance of embers streaks toward a creature you can see.",
+      "higherLevels": "The damage increases by 1d6 per slot level above 2nd."
+    }
+  ]
+}
+```
+
+Only `id` (unique text), `name` and `level` (0 to 9, 0 = cantrip) are required; the other fields default to empty or false. `castingTime` is `action`, `bonusAction`, `reaction` or `other`, `save` is an ability name (`str`, `dex`, `con`, `int_`, `wis`, `cha`), and `areaShape` is `none` unless the spell has an area. Keep `id`s stable between versions of your file: characters remember the spells they already have by `id`.
+
+`tool/build_spell_catalog.py` can still generate a file in this format from Obsidian-style SRD notes:
 
 ```sh
-python tool/build_spell_catalog.py "<path to Spells_A-Z folder>" assets/data/srd_spells.json
+python tool/build_spell_catalog.py "<path to Spells_A-Z folder>" my_spells.json
 python -m unittest discover -s tool -p "test_*.py"
 ```
 

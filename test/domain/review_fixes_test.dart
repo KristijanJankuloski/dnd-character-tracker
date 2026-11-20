@@ -39,7 +39,7 @@ Item weapon(String name, {bool equipped = true}) {
 }
 
 void main() {
-  loadSrdCatalogForTests();
+  loadTestSpellCatalog();
   group('death and healing', () {
     test('massive damage warns but does not decide death', () {
       final c = make('Sorcerer').copyWith(hpCurrent: 5);
@@ -341,7 +341,7 @@ void main() {
       expect(slotsRemaining(c, s, 4), 1);
       final r = castSpell(
         c,
-        srdSpells.firstWhere((x) => x.name == 'Polymorph'),
+        spellCatalog.firstWhere((x) => x.name == 'Polymorph'),
         slotLevel: 4,
       );
       expect(r.blocked, isFalse);
@@ -525,7 +525,7 @@ void main() {
       final names = ['Magic Missile', 'Shield', 'Burning Hands'];
       ActionResult? last;
       for (final n in names) {
-        last = addSpell(c, srdSpells.firstWhere((s) => s.name == n));
+        last = addSpell(c, spellCatalog.firstWhere((s) => s.name == n));
         c = last.character;
       }
       expect(last!.warnings.single, contains('3 spells known'));
@@ -535,11 +535,11 @@ void main() {
       var c = make('Wizard');
       c = addSpell(
         c,
-        srdSpells.firstWhere((s) => s.name == 'Fireball'),
+        spellCatalog.firstWhere((s) => s.name == 'Fireball'),
       ).character;
       c = addSpell(
         c,
-        srdSpells.firstWhere((s) => s.name == 'Fire Bolt'),
+        spellCatalog.firstWhere((s) => s.name == 'Fire Bolt'),
       ).character;
       expect(
         c.spells.firstWhere((s) => s.name == 'Fireball').prepared,
@@ -553,13 +553,13 @@ void main() {
       var s = make('Sorcerer');
       s = addSpell(
         s,
-        srdSpells.firstWhere((x) => x.name == 'Fireball'),
+        spellCatalog.firstWhere((x) => x.name == 'Fireball'),
       ).character;
       expect(s.spells.first.prepared, isTrue);
     });
 
     test('ritual rules per class', () {
-      final detect = srdSpells.firstWhere((s) => s.name == 'Detect Magic');
+      final detect = spellCatalog.firstWhere((s) => s.name == 'Detect Magic');
       expect(
         canRitualCast(make('Wizard'), detect.copyWith(prepared: false)),
         isTrue,
@@ -574,7 +574,7 @@ void main() {
       expect(
         canRitualCast(
           make('Wizard'),
-          srdSpells.firstWhere((s) => s.name == 'Fireball'),
+          spellCatalog.firstWhere((s) => s.name == 'Fireball'),
         ),
         isFalse,
       );

@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:jjs_character_tracker/domain/spell_catalog.dart';
 
-/// Loads the bundled spell catalog straight from disk (tests run from the
-/// project root), so code that reads `srdSpells` works without an AssetBundle.
-void loadSrdCatalogForTests() {
+/// Loads a small spell list from test/fixtures (tests run from the project
+/// root) so code that reads `spellCatalog` has spells to work with.
+void loadTestSpellCatalog() {
   setSpellCatalog(
-    parseSpellCatalog(File('assets/data/srd_spells.json').readAsStringSync()),
+    parseSpellCatalog(File('test/fixtures/spells.json').readAsStringSync()),
   );
 }

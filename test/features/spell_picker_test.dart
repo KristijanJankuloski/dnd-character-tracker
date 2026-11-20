@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jjs_character_tracker/core/theme.dart';
 import 'package:jjs_character_tracker/domain/models.dart';
+import 'package:jjs_character_tracker/domain/spell_catalog.dart';
 import 'package:jjs_character_tracker/features/spells/spell_picker.dart';
 
 import '../helpers/srd_catalog.dart';
@@ -12,7 +13,7 @@ class _Outcome {
 }
 
 void main() {
-  setUpAll(loadSrdCatalogForTests);
+  setUpAll(loadTestSpellCatalog);
 
   Future<_Outcome> openPicker(
     WidgetTester tester, {
@@ -64,15 +65,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('opens with search, custom spell, first spells and attribution', (
+  testWidgets('opens with search, custom spell and first spells', (
     tester,
   ) async {
     await openPicker(tester);
-    expect(find.text('Search SRD spells'), findsOneWidget);
+    expect(find.text('Search spells'), findsOneWidget);
     expect(find.text('Create a custom spell'), findsOneWidget);
     expect(find.text('Acid Arrow'), findsOneWidget);
-    expect(find.textContaining('SRD 5.1'), findsOneWidget);
-    expect(find.textContaining('CC-BY-4.0'), findsOneWidget);
+  });
+
+  testWidgets('with nothing imported, hints to import and still allows custom', (
+    tester,
+  ) async {
+    resetSpellCatalogForTests();
+    addTearDown(loadTestSpellCatalog);
+    await openPicker(tester);
+    expect(find.textContaining('No spells imported yet'), findsOneWidget);
+    expect(find.text('Create a custom spell'), findsOneWidget);
   });
 
   testWidgets('rows show level, school, casting time and range', (
