@@ -121,7 +121,12 @@ class _View extends StatelessWidget {
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16 + MediaQuery.paddingOf(context).left,
+              16,
+              16 + MediaQuery.paddingOf(context).right,
+              16 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: state.characters.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
