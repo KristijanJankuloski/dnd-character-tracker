@@ -10,6 +10,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned to the version of the last green run on master (Nov 8).
+          # Newer stable releases flag package:flutter/material.dart as
+          # deprecated, which fails flutter analyze.
+          flutter-version: 3.47.9
           cache: true
       - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
       - run: flutter pub get
