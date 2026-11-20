@@ -16,7 +16,6 @@ void main() {
 
   Future<void> importVia(WidgetTester tester, String? text) async {
     final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
     repo = DriftCharacterRepository(db);
     await tester.pumpWidget(
       DnDApp(
@@ -33,6 +32,7 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
     await tester.pumpAndSettle();
+    await db.close();
   }
 
   testWidgets('Import character loads a valid file', (tester) async {

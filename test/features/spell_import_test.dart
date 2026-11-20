@@ -20,7 +20,6 @@ void main() {
 
   Future<void> importVia(WidgetTester tester, String? text) async {
     final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
     final lib = SpellLibrary(
       locate: () async => File('${dir.path}/spells.json'),
       pick: () async => text,
@@ -33,10 +32,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Import spells'), findsOneWidget);
     await tester.tap(find.text('Import spells'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
+    // File IO finishes on the real event loop, one step per round trip, so
+    // alternate between letting it run and pumping the widgets.
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     await tester.pumpAndSettle();
+    await db.close();
   }
 
   testWidgets('Import spells loads a valid file', (tester) async {
