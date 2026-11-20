@@ -43,18 +43,18 @@ class _View extends StatelessWidget {
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () => context.push('/receive'),
           ),
-          IconButton(
-            tooltip: 'Import backup from clipboard',
-            icon: const Icon(Icons.file_download_outlined),
-            onPressed: () => _import(context),
-          ),
-          if (context.read<SpellLibrary?>() != null)
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              onSelected: (v) {
-                if (v == 'spells') _importSpells(context);
-              },
-              itemBuilder: (_) => [
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (v) {
+              if (v == 'backup') _import(context);
+              if (v == 'spells') _importSpells(context);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'backup',
+                child: Text('Import character from clipboard'),
+              ),
+              if (context.read<SpellLibrary?>() != null)
                 PopupMenuItem(
                   value: 'spells',
                   child: Text(
@@ -63,8 +63,8 @@ class _View extends StatelessWidget {
                         : 'Import spells (${spellCatalog.length} loaded)',
                   ),
                 ),
-              ],
-            ),
+            ],
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
