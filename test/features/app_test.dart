@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../helpers/srd_catalog.dart';
 
 void main() {
-  setUpAll(loadSrdCatalogForTests);
+  setUpAll(loadTestSpellCatalog);
 
   late AppDatabase db;
   late DriftCharacterRepository repo;

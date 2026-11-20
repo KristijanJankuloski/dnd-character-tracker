@@ -1,11 +1,11 @@
-/// A small bundled SRD catalog (2014) of items. Spells live in the bundled
-/// JSON catalog (see spell_catalog.dart); custom entries can always be
-/// created by hand.
+/// A small bundled SRD catalog (2014) of items. Spells come from the list the
+/// DM imports (see spell_catalog.dart); custom entries can always be created
+/// by hand.
 library;
 
 import 'models.dart';
 
-export 'spell_catalog.dart' show srdSpells;
+export 'spell_catalog.dart' show spellCatalog;
 
 Item _weapon(
   String name,

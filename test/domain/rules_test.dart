@@ -40,7 +40,7 @@ Item srd(String name) {
 Character withItems(Character c, List<Item> items) => c.copyWith(items: items);
 
 void main() {
-  loadSrdCatalogForTests();
+  loadTestSpellCatalog();
   group('derived stats', () {
     test('modifiers and proficiency', () {
       expect(abilityModOf(10), 0);
@@ -301,10 +301,10 @@ void main() {
   });
 
   group('casting', () {
-    final fireball = srdSpells.firstWhere((s) => s.name == 'Fireball');
-    final haste = srdSpells.firstWhere((s) => s.name == 'Haste');
-    final healingWord = srdSpells.firstWhere((s) => s.name == 'Healing Word');
-    final fireBolt = srdSpells.firstWhere((s) => s.name == 'Fire Bolt');
+    final fireball = spellCatalog.firstWhere((s) => s.name == 'Fireball');
+    final haste = spellCatalog.firstWhere((s) => s.name == 'Haste');
+    final healingWord = spellCatalog.firstWhere((s) => s.name == 'Healing Word');
+    final fireBolt = spellCatalog.firstWhere((s) => s.name == 'Fire Bolt');
 
     test('spends slot, marks action, upcasts', () {
       final r = castSpell(sorcerer(), fireball, slotLevel: 3);
@@ -328,7 +328,7 @@ void main() {
 
     test('second concentration spell needs confirmation, then replaces', () {
       final c = castSpell(sorcerer(), haste, slotLevel: 3).character;
-      final holdPerson = srdSpells.firstWhere((s) => s.name == 'Hold Person');
+      final holdPerson = spellCatalog.firstWhere((s) => s.name == 'Hold Person');
       final refused = castSpell(c, holdPerson, slotLevel: 2);
       expect(refused.blocked, isTrue);
       expect(refused.character.concentration, 'Haste');
@@ -358,7 +358,7 @@ void main() {
     );
 
     test('ritual casting spends no slot, and only for ritual casters', () {
-      final detect = srdSpells.firstWhere((s) => s.name == 'Detect Magic');
+      final detect = spellCatalog.firstWhere((s) => s.name == 'Detect Magic');
       expect(castSpell(sorcerer(), detect, ritual: true).blocked, isTrue);
       final wizard = createCharacter(
         name: 'W',
@@ -626,7 +626,7 @@ void main() {
     test('character round trips through JSON', () {
       final c = castSpell(
         sorcerer(),
-        srdSpells.firstWhere((s) => s.name == 'Haste'),
+        spellCatalog.firstWhere((s) => s.name == 'Haste'),
         slotLevel: 3,
       ).character;
       final copy = Character.fromJson(c.toJson());

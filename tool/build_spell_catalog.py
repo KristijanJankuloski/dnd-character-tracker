@@ -1,4 +1,4 @@
-"""Builds assets/data/srd_spells.json from the Obsidian SRD spell notes.
+"""Builds an importable spells JSON file from the Obsidian SRD spell notes.
 
 Usage: python tool/build_spell_catalog.py <spells_dir> <out.json>
 

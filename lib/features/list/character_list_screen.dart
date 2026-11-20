@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../data/spell_library.dart';
 import '../../domain/repository.dart';
+import '../../domain/spell_catalog.dart';
 import '../../domain/sync.dart';
 import 'character_list_cubit.dart';
 
@@ -41,10 +43,27 @@ class _View extends StatelessWidget {
             icon: const Icon(Icons.qr_code_scanner),
             onPressed: () => context.push('/receive'),
           ),
-          IconButton(
-            tooltip: 'Import backup from clipboard',
-            icon: const Icon(Icons.file_download_outlined),
-            onPressed: () => _import(context),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (v) {
+              if (v == 'backup') _import(context);
+              if (v == 'spells') _importSpells(context);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'backup',
+                child: Text('Import character from clipboard'),
+              ),
+              if (context.read<SpellLibrary?>() != null)
+                PopupMenuItem(
+                  value: 'spells',
+                  child: Text(
+                    spellCatalog.isEmpty
+                        ? 'Import spells'
+                        : 'Import spells (${spellCatalog.length} loaded)',
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -161,6 +180,61 @@ class _View extends StatelessWidget {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('That does not look like a character backup.')),
+      );
+    }
+  }
+
+  Future<void> _importSpells(BuildContext context) async {
+    final lib = context.read<SpellLibrary?>()!;
+    final messenger = ScaffoldMessenger.of(context);
+    String? text;
+    try {
+      text = await lib.pick();
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not open that file.')),
+      );
+      return;
+    }
+    if (text == null) return; // cancelled
+    try {
+      final n = await lib.import(text);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported $n ${n == 1 ? 'spell' : 'spells'}. '
+            'They replace the previous list.',
+          ),
+        ),
+      );
+    } on SpellImportException catch (e) {
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Spell file not imported'),
+          content: SingleChildScrollView(
+            child: Text(
+              [
+                ...e.problems.take(10),
+                if (e.problems.length > 10)
+                  '…and ${e.problems.length - 10} more.',
+                '',
+                'Your previous spell list is unchanged.',
+              ].join('\n'),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save the spell list.')),
       );
     }
   }

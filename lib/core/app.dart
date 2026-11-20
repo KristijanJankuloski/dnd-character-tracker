@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/nearby_discovery.dart';
+import '../data/spell_library.dart';
 import '../domain/repository.dart';
 import '../domain/sync.dart';
 import '../features/character/character_page.dart';
@@ -40,12 +41,16 @@ class DnDApp extends StatefulWidget {
     super.key,
     required this.repository,
     this.syncStore,
+    this.spellLibrary,
     this.discoveryFactory,
   });
   final CharacterRepository repository;
 
   /// Enables syncing with nearby devices when given.
   final SyncStore? syncStore;
+
+  /// Enables importing a spell list when given.
+  final SpellLibrary? spellLibrary;
 
   /// Replaceable in tests.
   final PeerDiscovery Function()? discoveryFactory;
@@ -65,11 +70,14 @@ class _DnDAppState extends State<DnDApp> {
       value: widget.repository,
       child: RepositoryProvider<SyncStore?>.value(
         value: widget.syncStore,
-        child: MaterialApp.router(
-          title: 'JJs Character Tracker',
-          theme: buildTheme(),
-          routerConfig: _router,
-          debugShowCheckedModeBanner: false,
+        child: RepositoryProvider<SpellLibrary?>.value(
+          value: widget.spellLibrary,
+          child: MaterialApp.router(
+            title: 'JJs Character Tracker',
+            theme: buildTheme(),
+            routerConfig: _router,
+            debugShowCheckedModeBanner: false,
+          ),
         ),
       ),
     );

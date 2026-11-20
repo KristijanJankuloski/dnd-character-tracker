@@ -23,9 +23,9 @@ double contrast(Color a, Color b) {
 }
 
 void main() {
-  setUpAll(loadSrdCatalogForTests);
+  setUpAll(loadTestSpellCatalog);
 
-  Spell spellNamed(String n) => srdSpells.firstWhere((s) => s.name == n);
+  Spell spellNamed(String n) => spellCatalog.firstWhere((s) => s.name == n);
 
   Future<_Outcome> openSheet(
     WidgetTester tester,

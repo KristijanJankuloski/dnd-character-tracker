@@ -6,9 +6,7 @@ import '../../domain/models.dart';
 import '../../domain/srd_data.dart';
 import 'spell_detail_sheet.dart';
 
-const _attribution = 'Spell data: SRD 5.1 © Wizards of the Coast, CC-BY-4.0';
-
-/// Bottom sheet for choosing a spell to add: the SRD encyclopedia with search
+/// Bottom sheet for choosing a spell to add: the imported spell list with search
 /// and level filters, plus a hand-made custom spell. Pops the chosen [Spell].
 class SpellPicker extends StatefulWidget {
   const SpellPicker({super.key});
@@ -23,7 +21,7 @@ class _SpellPickerState extends State<SpellPicker> {
   @override
   Widget build(BuildContext context) {
     final q = _q.trim().toLowerCase();
-    final list = srdSpells
+    final list = spellCatalog
         .where(
           (s) =>
               (_level == null || s.level == _level) &&
@@ -40,7 +38,7 @@ class _SpellPickerState extends State<SpellPicker> {
             child: TextField(
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
-                hintText: 'Search SRD spells',
+                hintText: 'Search spells',
               ),
               onChanged: (v) => setState(() => _q = v),
             ),
@@ -82,6 +80,19 @@ class _SpellPickerState extends State<SpellPicker> {
                         Navigator.pop(context, sp);
                       }
                     },
+                  );
+                }
+                if (spellCatalog.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No spells imported yet. On the Characters screen, '
+                        'open the menu and choose Import spells.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Palette.textDim),
+                      ),
+                    ),
                   );
                 }
                 if (list.isEmpty) {
@@ -145,18 +156,6 @@ class _SpellPickerState extends State<SpellPicker> {
                   },
                 );
               },
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text(
-              _attribution,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontStyle: FontStyle.italic,
-                color: Palette.textDim,
-              ),
             ),
           ),
         ],

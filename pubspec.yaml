@@ -45,6 +45,7 @@ dependencies:
   uuid: ^4.6.0
   qr_flutter: ^4.1.0
   flutter_zxing: ^3.1.0
+  file_picker: ^10.3.0
   nsd: ^5.0.1
   crypto: ^3.0.8
   cryptography: ^2.9.0
@@ -88,7 +89,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/data/srd_spells.json
     - assets/fonts/Cinzel-OFL.txt
     - assets/fonts/Alegreya-OFL.txt
 

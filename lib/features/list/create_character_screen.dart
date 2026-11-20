@@ -105,7 +105,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
     final maxLevel = (_level + 1) ~/ 2;
     return [
       for (final n in names)
-        ...srdSpells.where(
+        ...spellCatalog.where(
           (s) =>
               s.name == n &&
               s.level <=
@@ -349,7 +349,7 @@ class _CreateCharacterScreenState extends State<CreateCharacterScreen> {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Add a few starter spells'),
-              subtitle: const Text('SRD spells you can edit later'),
+              subtitle: const Text('From your imported spell list; edit them later'),
               value: _starterSpellsOn,
               onChanged: (v) => setState(() => _starterSpellsOn = v),
             ),
