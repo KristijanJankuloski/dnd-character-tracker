@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
-import '../../domain/character_factory.dart';
 import '../../domain/models.dart';
 import '../../domain/srd_data.dart';
+import 'custom_spell_page.dart';
 import 'spell_detail_sheet.dart';
 
 /// Bottom sheet for choosing a spell to add: the imported spell list with search
@@ -75,7 +75,7 @@ class _SpellPickerState extends State<SpellPicker> {
                     leading: const Icon(Icons.edit, color: Palette.gold),
                     title: const Text('Create a custom spell'),
                     onTap: () async {
-                      final sp = await _custom(context);
+                      final sp = await CustomSpellPage.open(context);
                       if (sp != null && context.mounted) {
                         Navigator.pop(context, sp);
                       }
@@ -159,165 +159,6 @@ class _SpellPickerState extends State<SpellPicker> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Future<Spell?> _custom(BuildContext context) {
-    final name = TextEditingController();
-    var level = 1;
-    var time = CastingTime.action;
-    var conc = false;
-    var ritual = false;
-    final range = TextEditingController();
-    final damageType = TextEditingController();
-    var shape = AreaShape.none;
-    final areaSize = TextEditingController();
-    final desc = TextEditingController();
-    return showDialog<Spell>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => AlertDialog(
-          title: const Text('Custom spell'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  autofocus: true,
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: level,
-                  decoration: const InputDecoration(labelText: 'Level'),
-                  items: [
-                    for (var i = 0; i <= 9; i++)
-                      DropdownMenuItem(
-                        value: i,
-                        child: Text(i == 0 ? 'Cantrip' : 'Level $i'),
-                      ),
-                  ],
-                  onChanged: (v) => set(() => level = v ?? 1),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<CastingTime>(
-                  initialValue: time,
-                  decoration: const InputDecoration(labelText: 'Casting time'),
-                  items: [
-                    for (final t in CastingTime.values)
-                      DropdownMenuItem(value: t, child: Text(castingLabel(t))),
-                  ],
-                  onChanged: (v) => set(() => time = v ?? CastingTime.action),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: range,
-                  decoration: InputDecoration(
-                    labelText: 'Range',
-                    hintText: 'Self, Touch, 30 ft...',
-                    suffixIcon: PopupMenuButton<String>(
-                      icon: const Icon(Icons.arrow_drop_down),
-                      onSelected: (v) => range.text = v,
-                      itemBuilder: (_) => [
-                        for (final r in const [
-                          'Self',
-                          'Touch',
-                          '30 ft',
-                          '60 ft',
-                          '120 ft',
-                        ])
-                          PopupMenuItem(value: r, child: Text(r)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: damageType,
-                  decoration: const InputDecoration(
-                    labelText: 'Damage type',
-                    hintText: 'fire, cold, none...',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<AreaShape>(
-                  initialValue: shape,
-                  decoration: const InputDecoration(labelText: 'Area / target'),
-                  items: [
-                    for (final a in AreaShape.values)
-                      DropdownMenuItem(value: a, child: Text(a.label)),
-                  ],
-                  onChanged: (v) => set(() => shape = v ?? AreaShape.none),
-                ),
-                if (shape != AreaShape.none &&
-                    shape != AreaShape.singleTarget) ...[
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: areaSize,
-                    decoration: const InputDecoration(
-                      labelText: 'Size (optional)',
-                      hintText: '20 ft',
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                TextField(
-                  controller: desc,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Short description',
-                  ),
-                ),
-                CheckboxListTile(
-                  value: conc,
-                  onChanged: (v) => set(() => conc = v ?? false),
-                  title: const Text('Concentration'),
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  value: ritual,
-                  onChanged: (v) => set(() => ritual = v ?? false),
-                  title: const Text('Ritual'),
-                  dense: true,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (name.text.trim().isEmpty) return;
-                Navigator.pop(
-                  ctx,
-                  Spell(
-                    id: newId('spell'),
-                    name: name.text.trim(),
-                    level: level,
-                    castingTime: time,
-                    concentration: conc,
-                    ritual: ritual,
-                    range: range.text.trim(),
-                    damageType: damageType.text.trim(),
-                    areaShape: shape,
-                    areaSize:
-                        shape == AreaShape.none ||
-                            shape == AreaShape.singleTarget
-                        ? ''
-                        : areaSize.text.trim(),
-                    text: desc.text.trim(),
-                  ),
-                );
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
       ),
     );
   }
