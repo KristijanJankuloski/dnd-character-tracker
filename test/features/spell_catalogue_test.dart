@@ -126,6 +126,26 @@ void main() {
     expect(spellCatalog.last.level, 3);
   });
 
+  testWidgets('a spell sharing its name with another can still be edited', (
+    t,
+  ) async {
+    // Import spells does not reject repeated names, so a catalogue can hold
+    // two spells called Light. Saving one without renaming it must work.
+    await openEditor(
+      t,
+      seed:
+          '{"spells":[{"id":"a","name":"Light","level":0},'
+          '{"id":"b","name":"Light","level":0}]}',
+    );
+    await t.tap(find.text('Light').first);
+    await t.pumpAndSettle();
+    await t.tap(find.text('Save').first);
+    await settle(t);
+    expect(find.textContaining('already has a spell'), findsNothing);
+    expect(find.text('Edit spell'), findsNothing);
+    expect(spellCatalog.map((s) => s.id), ['a', 'b']);
+  });
+
   testWidgets('delete asks first, then removes the spell', (t) async {
     await openEditor(t, seed: two);
     await t.tap(find.byTooltip('Delete Alpha'));

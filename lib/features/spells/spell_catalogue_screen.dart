@@ -59,7 +59,10 @@ class _SpellCatalogueScreenState extends State<SpellCatalogueScreen> {
     final sp = await CustomSpellPage.open(
       context,
       initial: old,
-      nameError: (n) => _nameError(n, exceptId: old.id),
+      // An imported file may already hold two spells with one name; keeping
+      // the name you have is always fine, only a rename must be free.
+      nameError: (n) =>
+          _key(n) == _key(old.name) ? null : _nameError(n, exceptId: old.id),
     );
     if (sp == null || !mounted) return;
     await _persist([
@@ -215,11 +218,8 @@ class _SpellCatalogueScreenState extends State<SpellCatalogueScreen> {
                           )
                         : ListView.builder(
                             // Room for the button, and for the gesture bar.
-                            padding: EdgeInsets.only(
-                              bottom: 88 + pad.bottom,
-                              left: pad.left,
-                              right: pad.right,
-                            ),
+                            // SafeArea already insets the sides.
+                            padding: EdgeInsets.only(bottom: 88 + pad.bottom),
                             itemCount: list.length,
                             itemBuilder: (ctx, i) {
                               final s = list[i];

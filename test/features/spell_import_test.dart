@@ -40,10 +40,7 @@ void main() {
   }
 
   testWidgets('Import spells loads a valid file', (tester) async {
-    await importVia(
-      tester,
-      '{"spells":[{"id":"a","name":"A","level":1}]}',
-    );
+    await importVia(tester, '{"spells":[{"id":"a","name":"A","level":1}]}');
     expect(spellCatalog, hasLength(1));
     expect(find.textContaining('Imported 1 spell'), findsOneWidget);
   });
@@ -59,5 +56,23 @@ void main() {
     await importVia(tester, null);
     expect(spellCatalog, isEmpty);
     expect(find.text('Spell file not imported'), findsNothing);
+  });
+
+  testWidgets('the menu opens the spell catalogue editor', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final lib = SpellLibrary(
+      locate: () async => File('${dir.path}/spells.json'),
+    );
+    await tester.pumpWidget(
+      DnDApp(repository: DriftCharacterRepository(db), spellLibrary: lib),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit spell catalogue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Spell catalogue'), findsOneWidget);
+    expect(find.textContaining('catalogue is empty'), findsOneWidget);
   });
 }
