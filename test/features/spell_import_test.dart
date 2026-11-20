@@ -65,7 +65,6 @@ void main() {
 
   testWidgets('the menu opens the spell catalogue editor', (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
     final lib = SpellLibrary(
       locate: () async => File('${dir.path}/spells.json'),
     );
@@ -79,5 +78,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Spell catalogue'), findsOneWidget);
     expect(find.textContaining('catalogue is empty'), findsOneWidget);
+    await db.close();
   });
 }
