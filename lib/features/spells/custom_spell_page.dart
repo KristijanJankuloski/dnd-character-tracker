@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../domain/character_factory.dart';
 import '../../domain/models.dart';
-import '../../domain/srd_data.dart';
 import 'spell_detail_sheet.dart';
 
 /// Full-screen form for a hand-made spell. It carries every field an imported
