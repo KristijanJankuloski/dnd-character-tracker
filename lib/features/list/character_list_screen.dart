@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../data/character_files.dart';
 import '../../data/spell_library.dart';
 import '../../domain/repository.dart';
 import '../../domain/spell_catalog.dart';
@@ -52,7 +52,7 @@ class _View extends StatelessWidget {
             itemBuilder: (_) => [
               const PopupMenuItem(
                 value: 'backup',
-                child: Text('Import character from clipboard'),
+                child: Text('Import character'),
               ),
               if (context.read<SpellLibrary?>() != null)
                 PopupMenuItem(
@@ -167,24 +167,41 @@ class _View extends StatelessWidget {
 
   Future<void> _import(BuildContext context) async {
     final cubit = context.read<CharacterListCubit>();
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text;
-    if (!context.mounted) return;
+    final files = context.read<CharacterFiles>();
     final messenger = ScaffoldMessenger.of(context);
-    if (text == null || text.trim().isEmpty) {
+    String? text;
+    try {
+      text = await files.pick();
+    } catch (_) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('The clipboard is empty. Copy a backup first.'),
-        ),
+        const SnackBar(content: Text('Could not open that file.')),
       );
       return;
     }
+    if (text == null) return; // cancelled
     try {
       final c = await cubit.import(text);
       messenger.showSnackBar(SnackBar(content: Text('Imported ${c.name}.')));
-    } catch (e) {
+    } on FormatException catch (e) {
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Character file not imported'),
+          content: SingleChildScrollView(
+            child: Text('${e.message}\n\nNo character was added.'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
       messenger.showSnackBar(
-        SnackBar(content: Text('That does not look like a character backup.')),
+        const SnackBar(content: Text('Could not save the character.')),
       );
     }
   }
