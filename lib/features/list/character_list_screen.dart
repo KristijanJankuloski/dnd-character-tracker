@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/character_files.dart';
+import '../../data/feat_library.dart';
 import '../../data/spell_library.dart';
+import '../../domain/feat_catalog.dart';
 import '../../domain/repository.dart';
 import '../../domain/spell_catalog.dart';
 import '../../domain/sync.dart';
@@ -49,6 +51,8 @@ class _View extends StatelessWidget {
               if (v == 'backup') _import(context);
               if (v == 'spells') _importSpells(context);
               if (v == 'catalogue') context.push('/spells');
+              if (v == 'feats') _importFeats(context);
+              if (v == 'featCatalogue') context.push('/feats');
             },
             itemBuilder: (_) => [
               const PopupMenuItem(
@@ -68,6 +72,20 @@ class _View extends StatelessWidget {
                 const PopupMenuItem(
                   value: 'catalogue',
                   child: Text('Edit spell catalogue'),
+                ),
+              if (context.read<FeatLibrary?>() != null)
+                PopupMenuItem(
+                  value: 'feats',
+                  child: Text(
+                    featCatalog.isEmpty
+                        ? 'Import feats'
+                        : 'Import feats (${featCatalog.length} loaded)',
+                  ),
+                ),
+              if (context.read<FeatLibrary?>() != null)
+                const PopupMenuItem(
+                  value: 'featCatalogue',
+                  child: Text('Edit feat catalogue'),
                 ),
             ],
           ),
@@ -263,6 +281,61 @@ class _View extends StatelessWidget {
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not save the spell list.')),
+      );
+    }
+  }
+
+  Future<void> _importFeats(BuildContext context) async {
+    final lib = context.read<FeatLibrary?>()!;
+    final messenger = ScaffoldMessenger.of(context);
+    String? text;
+    try {
+      text = await lib.pick();
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not open that file.')),
+      );
+      return;
+    }
+    if (text == null) return; // cancelled
+    try {
+      final n = await lib.import(text);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported $n ${n == 1 ? 'feat' : 'feats'}. '
+            'They replace the previous list.',
+          ),
+        ),
+      );
+    } on FeatImportException catch (e) {
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Feat file not imported'),
+          content: SingleChildScrollView(
+            child: Text(
+              [
+                ...e.problems.take(10),
+                if (e.problems.length > 10)
+                  '…and ${e.problems.length - 10} more.',
+                '',
+                'Your previous feat list is unchanged.',
+              ].join('\n'),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save the feat list.')),
       );
     }
   }

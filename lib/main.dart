@@ -8,12 +8,15 @@ import 'core/app.dart';
 import 'data/database.dart';
 import 'data/drift_repository.dart';
 import 'data/drift_sync_store.dart';
+import 'data/feat_library.dart';
 import 'data/spell_library.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final spellLibrary = SpellLibrary();
   await spellLibrary.load();
+  final featLibrary = FeatLibrary();
+  await featLibrary.load();
   LicenseRegistry.addLicense(() async* {
     for (final font in const ['Cinzel', 'Alegreya']) {
       yield LicenseEntryWithLineBreaks([
@@ -26,6 +29,7 @@ Future<void> main() async {
     DnDApp(
       repository: DriftCharacterRepository(db),
       spellLibrary: spellLibrary,
+      featLibrary: featLibrary,
       syncStore: DriftSyncStore(db, defaultName: _deviceName),
     ),
   );
