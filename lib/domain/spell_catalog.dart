@@ -77,7 +77,7 @@ List<Spell> parseSpellCatalog(String json, {bool allowEmpty = false}) {
     } catch (_) {
       problems.add(
         '$who: a field has the wrong type or an unknown value '
-        '(check "save" and the true/false fields).',
+        '(check "save", "classes" and the true/false fields).',
       );
     }
   }

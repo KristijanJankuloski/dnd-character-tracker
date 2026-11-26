@@ -9,7 +9,12 @@ import 'spell_detail_sheet.dart';
 /// Bottom sheet for choosing a spell to add: the imported spell list with search
 /// and level filters, plus a hand-made custom spell. Pops the chosen [Spell].
 class SpellPicker extends StatefulWidget {
-  const SpellPicker({super.key});
+  const SpellPicker({super.key, this.classes = const []});
+
+  /// The character's class names. Only spells open to one of them are offered
+  /// (spells with no class list are open to all). Empty offers every spell.
+  final List<String> classes;
+
   @override
   State<SpellPicker> createState() => _SpellPickerState();
 }
@@ -24,6 +29,7 @@ class _SpellPickerState extends State<SpellPicker> {
     final list = spellCatalog
         .where(
           (s) =>
+              (widget.classes.isEmpty || s.availableTo(widget.classes)) &&
               (_level == null || s.level == _level) &&
               s.name.toLowerCase().contains(q),
         )
@@ -75,7 +81,14 @@ class _SpellPickerState extends State<SpellPicker> {
                     leading: const Icon(Icons.edit, color: Palette.gold),
                     title: const Text('Create a custom spell'),
                     onTap: () async {
-                      final sp = await CustomSpellPage.open(context);
+                      final sp = await CustomSpellPage.open(
+                        context,
+                        // A new spell is for the character's class (the main
+                        // one for a multiclass character; it can be changed).
+                        initialClasses: widget.classes.isEmpty
+                            ? const []
+                            : [widget.classes.first],
+                      );
                       if (sp != null && context.mounted) {
                         Navigator.pop(context, sp);
                       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/character_factory.dart';
+import '../../domain/class_templates.dart';
 import '../../domain/models.dart';
 import 'spell_detail_sheet.dart';
 
@@ -9,19 +10,32 @@ import 'spell_detail_sheet.dart';
 /// spell instead (keeping its id), and [nameError] can reject a name, for
 /// example one that is already taken.
 class CustomSpellPage extends StatefulWidget {
-  const CustomSpellPage({super.key, this.initial, this.nameError});
+  const CustomSpellPage({
+    super.key,
+    this.initial,
+    this.nameError,
+    this.initialClasses = const [],
+  });
 
   final Spell? initial;
+
+  /// The classes ticked for a new spell (ignored when editing [initial]).
+  final List<String> initialClasses;
   final String? Function(String name)? nameError;
 
   static Future<Spell?> open(
     BuildContext context, {
     Spell? initial,
     String? Function(String name)? nameError,
+    List<String> initialClasses = const [],
   }) => Navigator.of(context).push<Spell>(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (_) => CustomSpellPage(initial: initial, nameError: nameError),
+      builder: (_) => CustomSpellPage(
+        initial: initial,
+        nameError: nameError,
+        initialClasses: initialClasses,
+      ),
     ),
   );
 
@@ -50,6 +64,10 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
   bool _alwaysPrepared = false;
   Ability? _save;
   AreaShape _shape = AreaShape.none;
+  late final Set<String> _classes = {
+    ...?widget.initial?.classes,
+    if (widget.initial == null) ...widget.initialClasses,
+  };
 
   @override
   void initState() {
@@ -129,9 +147,23 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
         areaSize: _hasSize ? t(_areaSize) : '',
         text: t(_text),
         higherLevels: t(_higher),
+        classes: [
+          // Known classes in their usual order, then any other names a
+          // imported file used.
+          for (final c in _classChoices)
+            if (_classes.contains(c)) c,
+        ],
       ),
     );
   }
+
+  /// Every class that can be ticked: the standard ones plus any other name the
+  /// spell already carries (for example from an imported file).
+  List<String> get _classChoices => [
+    ...classTemplates.keys,
+    for (final c in _classes)
+      if (!classTemplates.containsKey(c)) c,
+  ];
 
   Widget _gap() => const SizedBox(height: 12);
 
@@ -350,6 +382,28 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
                   ),
                 ),
               ],
+              _section('Classes'),
+              Text(
+                _classes.isEmpty
+                    ? 'No class selected: every class can use this spell.'
+                    : 'Only the selected classes can use this spell.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final c in _classChoices)
+                    FilterChip(
+                      label: Text(c),
+                      selected: _classes.contains(c),
+                      onSelected: (on) => setState(() {
+                        on ? _classes.add(c) : _classes.remove(c);
+                      }),
+                    ),
+                ],
+              ),
               _section('Description'),
               TextFormField(
                 controller: _text,

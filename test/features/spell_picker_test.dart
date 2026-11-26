@@ -18,6 +18,7 @@ void main() {
   Future<_Outcome> openPicker(
     WidgetTester tester, {
     double textScale = 1,
+    List<String> classes = const [],
   }) async {
     tester.view.physicalSize = const Size(412, 915);
     tester.view.devicePixelRatio = 1;
@@ -39,7 +40,7 @@ void main() {
                   out.picked = await showModalBottomSheet<Spell>(
                     context: ctx,
                     isScrollControlled: true,
-                    builder: (_) => const SpellPicker(),
+                    builder: (_) => SpellPicker(classes: classes),
                   );
                   out.closed = true;
                 },
@@ -180,5 +181,45 @@ void main() {
     expect(out.closed, isTrue);
     expect(out.picked?.name, 'Zap');
     expect(out.picked?.id, startsWith('spell'));
+  });
+
+  group('class restrictions', () {
+    setUp(() {
+      setSpellCatalog(const [
+        Spell(id: 'any', name: 'Anyone Spell', level: 1),
+        Spell(id: 'wiz', name: 'Wizard Spell', level: 1, classes: ['Wizard']),
+        Spell(id: 'clr', name: 'Cleric Spell', level: 1, classes: ['Cleric']),
+      ]);
+    });
+    tearDown(loadTestSpellCatalog);
+
+    testWidgets('offers only spells open to the character class', (
+      tester,
+    ) async {
+      await openPicker(tester, classes: ['Wizard']);
+      expect(find.text('Anyone Spell'), findsOneWidget);
+      expect(find.text('Wizard Spell'), findsOneWidget);
+      expect(find.text('Cleric Spell'), findsNothing);
+    });
+
+    testWidgets('a multiclass character sees spells of either class', (
+      tester,
+    ) async {
+      await openPicker(tester, classes: ['Wizard', 'Cleric']);
+      expect(find.text('Wizard Spell'), findsOneWidget);
+      expect(find.text('Cleric Spell'), findsOneWidget);
+    });
+
+    testWidgets('a new custom spell is pre-set to the character class', (
+      tester,
+    ) async {
+      final out = await openPicker(tester, classes: ['Wizard']);
+      await tester.tap(find.text('Create a custom spell'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'My Spell');
+      await tester.tap(find.text('Add spell'));
+      await tester.pumpAndSettle();
+      expect(out.picked?.classes, ['Wizard']);
+    });
   });
 }
