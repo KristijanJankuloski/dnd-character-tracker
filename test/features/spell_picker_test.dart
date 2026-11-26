@@ -217,7 +217,7 @@ void main() {
       await tester.tap(find.text('Create a custom spell'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, 'My Spell');
-      await tester.tap(find.text('Add spell'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add'));
       await tester.pumpAndSettle();
       expect(out.picked?.classes, ['Wizard']);
     });
