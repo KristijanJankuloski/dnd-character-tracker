@@ -9,6 +9,7 @@ import '../../core/widgets.dart';
 import '../../data/character_files.dart';
 import '../../domain/actions.dart' as act;
 import '../../domain/class_templates.dart';
+import '../../domain/rules.dart';
 import '../../domain/repository.dart';
 import '../character/character_bloc.dart';
 import '../character/character_event.dart';
@@ -42,6 +43,12 @@ class JournalScreen extends StatelessWidget {
                         : () => _levelUp(context, s),
                     icon: const Icon(Icons.arrow_upward),
                     label: const Text('Level up'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _adjustLevels(context, s),
+                    icon: const Icon(Icons.swap_vert),
+                    label: const Text('Adjust levels'),
                   ),
                 ],
               ),
@@ -213,6 +220,140 @@ class JournalScreen extends StatelessWidget {
     );
     if (ok == true) {
       bloc.add(LeveledUp(className, subclass: subclass.text.trim()));
+    }
+  }
+
+  Future<void> _adjustLevels(BuildContext context, CharacterLoaded s) async {
+    final bloc = context.read<CharacterBloc>();
+    final original = s.character;
+    final levels = <String, int>{
+      for (final cl in original.classes) cl.className: cl.level,
+    };
+    String? toAdd;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final changes = {
+            for (final e in levels.entries)
+              if (e.value !=
+                  (original.classes
+                          .where((x) => x.className == e.key)
+                          .firstOrNull
+                          ?.level ??
+                      0))
+                e.key: e.value,
+          };
+          final preview = changes.isEmpty
+              ? null
+              : act.adjustLevels(original, changes);
+          final total = levels.values.fold(0, (a, b) => a + b);
+          final available = [
+            for (final n in classTemplates.keys)
+              if (!levels.containsKey(n)) n,
+          ];
+          return AlertDialog(
+            title: const Text('Adjust levels'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final e in levels.entries)
+                    Row(
+                      children: [
+                        Expanded(child: Text(e.key)),
+                        IconButton(
+                          icon: const Icon(Icons.remove),
+                          onPressed: e.value > 0 && total > 1
+                              ? () => set(() => levels[e.key] = e.value - 1)
+                              : null,
+                        ),
+                        SizedBox(
+                          width: 28,
+                          child: Text('${e.value}', textAlign: TextAlign.center),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: total < 20
+                              ? () => set(() => levels[e.key] = e.value + 1)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  if (available.isNotEmpty)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: toAdd,
+                            decoration: const InputDecoration(
+                              labelText: 'Add class',
+                            ),
+                            items: [
+                              for (final n in available)
+                                DropdownMenuItem(value: n, child: Text(n)),
+                            ],
+                            onChanged: (v) => set(() {
+                              if (v != null) {
+                                levels[v] = 1;
+                                toAdd = null;
+                              }
+                            }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 12),
+                  Text('Total level: $total (was ${original.level})'),
+                  if (preview != null && !preview.blocked) ...[
+                    Text(
+                      'Max HP: ${resolveStats(original).maxHp} to ${resolveStats(preview.character).maxHp}',
+                    ),
+                    Text(preview.character.classLine),
+                    for (final w in preview.warnings)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          w,
+                          style: const TextStyle(color: Palette.textDim),
+                        ),
+                      ),
+                  ],
+                  if (preview != null && preview.blocked)
+                    Text(preview.description),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: preview == null || preview.blocked
+                    ? null
+                    : () => Navigator.pop(ctx, true),
+                child: const Text('Apply'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (ok == true) {
+      bloc.add(
+        LevelsAdjusted({
+          for (final e in levels.entries)
+            if (e.value !=
+                (original.classes
+                        .where((x) => x.className == e.key)
+                        .firstOrNull
+                        ?.level ??
+                    0))
+              e.key: e.value,
+        }),
+      );
     }
   }
 

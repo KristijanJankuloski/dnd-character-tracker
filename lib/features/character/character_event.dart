@@ -444,6 +444,13 @@ class LeveledUp extends CharacterAction {
       act.levelUp(c, className, subclass: subclass);
 }
 
+class LevelsAdjusted extends CharacterAction {
+  const LevelsAdjusted(this.targets);
+  final Map<String, int> targets;
+  @override
+  act.ActionResult run(Character c) => act.adjustLevels(c, targets);
+}
+
 class WeaponProficiencyCycled extends CharacterAction {
   const WeaponProficiencyCycled(this.itemId);
   final String itemId;
