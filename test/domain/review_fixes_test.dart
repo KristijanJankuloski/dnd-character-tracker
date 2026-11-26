@@ -611,4 +611,44 @@ void main() {
       expect(back.compactMode, isTrue);
     });
   });
+
+  group('adjust levels', () {
+    test('losing a level lowers HP and level, and clamps current HP', () {
+      final c = make('Bard', level: 5);
+      final r = levelDown(c, 'Bard');
+      expect(r.character.level, 4);
+      expect(r.character.hpCurrent, resolveStats(r.character).maxHp);
+    });
+
+    test('dropping a class to 0 removes its resources and features', () {
+      final c = levelUp(make('Sorcerer', level: 3), 'Fighter').character;
+      expect(c.resources.any((r) => r.id == 'second-wind'), isTrue);
+      final r = levelDown(c, 'Fighter');
+      expect(r.character.classes.map((e) => e.className), ['Sorcerer']);
+      expect(r.character.resources.any((r) => r.id == 'second-wind'), isFalse);
+      expect(r.character.resources.any((r) => r.id == 'sorcery-points'), isTrue);
+    });
+
+    test('cannot drop the last level', () {
+      expect(levelDown(make('Bard', level: 1), 'Bard').blocked, isTrue);
+    });
+
+    test('swap: Bard 5 to 4 and Wizard 0 to 2 in one change', () {
+      final c = make('Bard', level: 5);
+      final r = adjustLevels(c, {'Bard': 4, 'Wizard': 2});
+      expect(r.blocked, isFalse);
+      expect(r.character.classes.map((e) => '${e.className}${e.level}'), [
+        'Bard4',
+        'Wizard2',
+      ]);
+      expect(r.character.level, 6);
+    });
+
+    test('swapping a level 1 class works and caps at 20 are respected', () {
+      final r = adjustLevels(make('Bard', level: 1), {'Bard': 0, 'Wizard': 1});
+      expect(r.character.classes.map((e) => e.className), ['Wizard']);
+      expect(adjustLevels(make('Bard', level: 20), {'Wizard': 1}).blocked, isTrue);
+      expect(adjustLevels(make('Bard', level: 20), {'Bard': 19, 'Wizard': 1}).blocked, isFalse);
+    });
+  });
 }

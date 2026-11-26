@@ -1313,6 +1313,146 @@ ActionResult levelUp(Character c, String className, {String subclass = ''}) {
   );
 }
 
+/// Removes one level from [className]. A class that reaches 0 is dropped along
+/// with its resources and the class features its template grants. Features the
+/// player added or renamed stay. Max HP, slots and hit dice are derived; current
+/// HP, spent slots and resource values are clamped to the new maximums.
+/// Spells, feats, ability scores and extra proficiencies are left for the
+/// player to review by hand.
+ActionResult levelDown(Character c, String className) {
+  final cl = c.classes.where((x) => x.className == className).firstOrNull;
+  if (cl == null) {
+    return ActionResult.blocked(c, 'No levels in $className to remove.');
+  }
+  if (c.level <= 1) {
+    return ActionResult.blocked(c, 'A character needs at least one level.');
+  }
+  final template = classTemplates[className];
+  final warnings = <String>[];
+  final removed = cl.level == 1;
+
+  final classes = <ClassLevel>[
+    for (final x in c.classes)
+      if (x.className != className)
+        x
+      else if (x.level > 1)
+        ClassLevel(x.className, x.level - 1, subclass: x.subclass),
+  ];
+  var out = c.copyWith(classes: classes);
+
+  var resources = [...out.resources];
+  var features = [...out.features];
+  if (removed) {
+    resources = [for (final r in resources) if (r.className != className) r];
+    if (template != null) {
+      final granted = {for (final f in template.features) f.name};
+      features = [
+        for (final f in features)
+          if (!(f.source == FeatureSource.classFeature &&
+              granted.contains(f.name)))
+            f,
+      ];
+    }
+    warnings.add(
+      'Removed $className. Check spells, proficiencies and any subclass features you added by hand.',
+    );
+  } else if (cl.subclass.isNotEmpty) {
+    warnings.add(
+      'Check ${cl.subclass} features that unlock at $className ${cl.level}.',
+    );
+  }
+  out = out.copyWith(resources: resources, features: features);
+
+  final after = resolveStats(out);
+  resources = [
+    for (final r in out.resources)
+      r.copyWith(
+        current: r.current.clamp(
+          0,
+          maxResource(out, r, (a) => after.mods[a]!),
+        ),
+      ),
+  ];
+  final slotsUsed = {
+    for (final e in out.slotsUsed.entries)
+      e.key: e.value.clamp(0, after.slotMax[e.key] ?? 0),
+  };
+  out = out.copyWith(
+    resources: resources,
+    slotsUsed: slotsUsed,
+    pactUsed: out.pactUsed.clamp(0, after.pactSlots?.$1 ?? 0),
+    hpCurrent: out.hpCurrent > after.maxHp ? after.maxHp : out.hpCurrent,
+  );
+  warnings.add('Review ability scores, feats and spells from lost levels.');
+  return ActionResult(
+    out,
+    removed
+        ? 'Removed class $className (character level ${out.level})'
+        : 'Lost a level: $className ${cl.level - 1} (character level ${out.level})',
+    warnings: warnings,
+  );
+}
+
+/// Applies a new level for each class in [targets] (class name to level, 0 to
+/// drop it, unknown names to add it) as one change.
+ActionResult adjustLevels(Character c, Map<String, int> targets) {
+  final total = {
+    for (final cl in c.classes) cl.className: cl.level,
+    ...targets,
+  }.values.fold(0, (a, b) => a + b);
+  if (targets.values.any((v) => v < 0)) {
+    return ActionResult.blocked(c, 'Levels cannot be negative.');
+  }
+  if (total < 1) {
+    return ActionResult.blocked(c, 'A character needs at least one level.');
+  }
+  if (total > 20) {
+    return ActionResult.blocked(c, 'Characters top out at level 20.');
+  }
+  for (final name in targets.keys) {
+    if (!classTemplates.containsKey(name)) {
+      return ActionResult.blocked(c, 'Unknown class $name.');
+    }
+  }
+  final before = c.classLine;
+  var cur = c;
+  final warnings = <String>[];
+  void run(ActionResult r) {
+    cur = r.character;
+    for (final w in r.warnings) {
+      if (!warnings.contains(w)) warnings.add(w);
+    }
+  }
+
+  int have(String name) =>
+      cur.classes.where((x) => x.className == name).firstOrNull?.level ?? 0;
+  // Ups first so the character never has zero levels mid-way (a swap from a
+  // level 1 class). Drops run first only when the cap of 20 gets in the way.
+  var guard = 0;
+  while (guard++ < 100) {
+    final up = targets.entries.where((e) => have(e.key) < e.value).firstOrNull;
+    final down = targets.entries
+        .where((e) => have(e.key) > e.value)
+        .firstOrNull;
+    if (up == null && down == null) break;
+    if (up != null && (cur.level < 20 || down == null)) {
+      run(levelUp(cur, up.key));
+    } else if (down != null) {
+      run(levelDown(cur, down.key));
+    } else {
+      break;
+    }
+  }
+  if (cur.classLine == before) {
+    return ActionResult.blocked(c, 'No level changes to apply.');
+  }
+  return ActionResult(
+    cur,
+    'Adjusted levels: $before to ${cur.classLine}',
+    warnings: warnings,
+  );
+}
+
 /// Weapon proficiency override: automatic, then proficient, then not.
 ActionResult cycleWeaponProficiency(Character c, String itemId) {
   final item = c.items.firstWhere((i) => i.id == itemId);
