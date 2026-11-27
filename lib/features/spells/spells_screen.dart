@@ -264,10 +264,14 @@ class _SpellsScreenState extends State<SpellsScreen> {
 
   Future<void> _addSpell(BuildContext context) async {
     final bloc = context.read<CharacterBloc>();
+    final state = bloc.state;
+    final classes = state is CharacterLoaded
+        ? [for (final c in state.character.classes) c.className]
+        : const <String>[];
     final picked = await showModalBottomSheet<Spell>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => const SpellPicker(),
+      builder: (ctx) => SpellPicker(classes: classes),
     );
     if (picked != null) bloc.add(SpellAdded(picked));
   }

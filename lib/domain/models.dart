@@ -403,6 +403,7 @@ class Spell {
     this.duration = '',
     this.higherLevels = '',
     this.castingTimeText = '',
+    this.classes = const [],
   });
 
   final String id;
@@ -434,9 +435,21 @@ class Spell {
   /// action / bonus action / reaction / other).
   final String castingTimeText;
 
+  /// The classes that can use this spell. Empty means every class.
+  final List<String> classes;
+
   bool get isCantrip => level == 0;
 
-  Spell copyWith({bool? prepared}) => Spell(
+  /// Whether a character with [characterClasses] may learn this spell: always
+  /// when the spell lists no classes, otherwise when any class matches
+  /// (ignoring case), so a multiclass character qualifies through either class.
+  bool availableTo(Iterable<String> characterClasses) {
+    if (classes.isEmpty) return true;
+    final mine = {for (final c in characterClasses) c.trim().toLowerCase()};
+    return classes.any((c) => mine.contains(c.trim().toLowerCase()));
+  }
+
+  Spell copyWith({bool? prepared, List<String>? classes}) => Spell(
     id: id,
     name: name,
     level: level,
@@ -458,6 +471,7 @@ class Spell {
     duration: duration,
     higherLevels: higherLevels,
     castingTimeText: castingTimeText,
+    classes: classes ?? this.classes,
   );
 
   Map<String, Object?> toJson() => {
@@ -482,6 +496,8 @@ class Spell {
     'duration': duration,
     'higherLevels': higherLevels,
     'castingTimeText': castingTimeText,
+    // Left out when empty so files stay as they were for all-class spells.
+    if (classes.isNotEmpty) 'classes': classes,
   };
 
   factory Spell.fromJson(Map<String, Object?> j) => Spell(
@@ -510,6 +526,10 @@ class Spell {
     duration: (j['duration'] as String?) ?? '',
     higherLevels: (j['higherLevels'] as String?) ?? '',
     castingTimeText: (j['castingTimeText'] as String?) ?? '',
+    classes: [
+      for (final c in (j['classes'] as List?) ?? const <Object?>[])
+        if ((c as String).trim().isNotEmpty) c.trim(),
+    ],
   );
 }
 
