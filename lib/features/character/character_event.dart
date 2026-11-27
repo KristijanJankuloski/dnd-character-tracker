@@ -125,6 +125,15 @@ class SpellAdded extends CharacterAction {
   act.ActionResult run(Character c) => act.addSpell(c, spell);
 }
 
+class SpellCapCountSet extends CharacterAction {
+  const SpellCapCountSet(this.spellId, this.counts);
+  final String spellId;
+  final bool counts;
+  @override
+  act.ActionResult run(Character c) =>
+      act.setSpellCountsTowardCap(c, spellId, counts);
+}
+
 class SpellRemoved extends CharacterAction {
   const SpellRemoved(this.spellId);
   final String spellId;

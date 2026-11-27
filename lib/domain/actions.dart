@@ -390,7 +390,13 @@ ActionResult togglePrepared(Character c, String spellId) {
   if (!spell.prepared && !spell.isCantrip) {
     final limit = preparedLimit(c, stats);
     final count = spells
-        .where((s) => s.prepared && !s.isCantrip && !s.alwaysPrepared)
+        .where(
+          (s) =>
+              s.prepared &&
+              !s.isCantrip &&
+              !s.alwaysPrepared &&
+              s.countsTowardCap,
+        )
         .length;
     if (count > limit) warnings.add('$count prepared; your limit is $limit.');
   }
@@ -398,6 +404,24 @@ ActionResult togglePrepared(Character c, String spellId) {
     c.copyWith(spells: spells),
     '${spell.prepared ? 'Unprepared' : 'Prepared'} ${spell.name}',
     warnings: warnings,
+  );
+}
+
+ActionResult setSpellCountsTowardCap(Character c, String spellId, bool counts) {
+  final spell = c.spells.firstWhere((s) => s.id == spellId);
+  if (spell.countsTowardCap == counts) {
+    return ActionResult.blocked(c, '${spell.name} is unchanged.');
+  }
+  return ActionResult(
+    c.copyWith(
+      spells: [
+        for (final s in c.spells)
+          s.id == spellId ? s.copyWith(countsTowardCap: counts) : s,
+      ],
+    ),
+    counts
+        ? '${spell.name} counts toward your spell cap'
+        : '${spell.name} no longer counts toward your spell cap',
   );
 }
 
@@ -416,11 +440,11 @@ ActionResult addSpell(Character c, Spell spell) {
   final limits = knownLimits(cl.className, cl.level);
   if (limits != null) {
     final all = [...c.spells, added];
-    final cantrips = all.where((s) => s.isCantrip).length;
+    final cantrips = all.where((s) => s.isCantrip && s.countsTowardCap).length;
     if (cantrips > limits.cantrips) {
       warnings.add('$cantrips cantrips; your class knows ${limits.cantrips}.');
     }
-    final known = all.where((s) => !s.isCantrip).length;
+    final known = all.where((s) => !s.isCantrip && s.countsTowardCap).length;
     if (limits.spells != null && known > limits.spells!) {
       warnings.add(
         '$known spells known; your class limit is ${limits.spells}.',

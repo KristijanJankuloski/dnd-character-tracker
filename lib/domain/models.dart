@@ -390,6 +390,7 @@ class Spell {
     this.ritual = false,
     this.prepared = true,
     this.alwaysPrepared = false,
+    this.countsTowardCap = true,
     this.range = '',
     this.damage = '',
     this.save,
@@ -414,6 +415,10 @@ class Spell {
   final bool ritual;
   final bool prepared;
   final bool alwaysPrepared;
+
+  /// False for spells granted by a class, race or feat that do not use up a
+  /// known/prepared/cantrip slot.
+  final bool countsTowardCap;
   final String range;
   final String damage;
   final Ability? save;
@@ -449,7 +454,11 @@ class Spell {
     return classes.any((c) => mine.contains(c.trim().toLowerCase()));
   }
 
-  Spell copyWith({bool? prepared, List<String>? classes}) => Spell(
+  Spell copyWith({
+    bool? prepared,
+    List<String>? classes,
+    bool? countsTowardCap,
+  }) => Spell(
     id: id,
     name: name,
     level: level,
@@ -458,6 +467,7 @@ class Spell {
     ritual: ritual,
     prepared: prepared ?? this.prepared,
     alwaysPrepared: alwaysPrepared,
+    countsTowardCap: countsTowardCap ?? this.countsTowardCap,
     range: range,
     damage: damage,
     save: save,
@@ -483,6 +493,8 @@ class Spell {
     'ritual': ritual,
     'prepared': prepared,
     'alwaysPrepared': alwaysPrepared,
+    // Only written when false so files stay as they were by default.
+    if (!countsTowardCap) 'countsTowardCap': false,
     'range': range,
     'damage': damage,
     'save': save?.name,
@@ -513,6 +525,7 @@ class Spell {
     ritual: (j['ritual'] as bool?) ?? false,
     prepared: (j['prepared'] as bool?) ?? true,
     alwaysPrepared: (j['alwaysPrepared'] as bool?) ?? false,
+    countsTowardCap: (j['countsTowardCap'] as bool?) ?? true,
     range: (j['range'] as String?) ?? '',
     damage: (j['damage'] as String?) ?? '',
     save: j['save'] == null ? null : Ability.parse(j['save'] as String),

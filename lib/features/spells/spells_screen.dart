@@ -41,7 +41,12 @@ class _SpellsScreenState extends State<SpellsScreen> {
           c.primaryClass.className,
           c.primaryClass.level,
         );
-        final cantripCount = c.spells.where((x) => x.isCantrip).length;
+        final cantripCount = c.spells
+            .where((x) => x.isCantrip && x.countsTowardCap)
+            .length;
+        final knownCount = c.spells
+            .where((x) => !x.isCantrip && x.countsTowardCap)
+            .length;
         var spells = [...c.spells]
           ..sort(
             (a, b) => a.level != b.level
@@ -58,7 +63,13 @@ class _SpellsScreenState extends State<SpellsScreen> {
           byLevel.putIfAbsent(sp.level, () => []).add(sp);
         }
         final preparedCount = c.spells
-            .where((x) => x.prepared && !x.isCantrip && !x.alwaysPrepared)
+            .where(
+              (x) =>
+                  x.prepared &&
+                  !x.isCantrip &&
+                  !x.alwaysPrepared &&
+                  x.countsTowardCap,
+            )
             .length;
 
         final header = Panel(
@@ -210,7 +221,7 @@ class _SpellsScreenState extends State<SpellsScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Known: ${c.spells.where((x) => !x.isCantrip).length}${limits?.spells == null ? '' : ' / ${limits!.spells}'} spells, $cantripCount${limits == null ? '' : ' / ${limits.cantrips}'} cantrips',
+                    'Known: $knownCount${limits?.spells == null ? '' : ' / ${limits!.spells}'} spells, $cantripCount${limits == null ? '' : ' / ${limits.cantrips}'} cantrips',
                     style: const TextStyle(color: Palette.textDim),
                   ),
                 ),
@@ -350,9 +361,18 @@ class _SpellTile extends StatelessWidget {
       ),
       onTap: () => showSpellDetailSheet(context, spell, canAdd: false),
       onLongPress: () async {
-        if (await confirm(context, 'Remove ${spell.name}?', yes: 'Remove') &&
-            context.mounted) {
-          context.read<CharacterBloc>().add(SpellRemoved(spell.id));
+        final bloc = context.read<CharacterBloc>();
+        final remove = await showModalBottomSheet<bool>(
+          context: context,
+          builder: (ctx) => _SpellEditSheet(
+            spell: spell,
+            onCountsChanged: (v) => bloc.add(SpellCapCountSet(spell.id, v)),
+          ),
+        );
+        if (remove == true &&
+            context.mounted &&
+            await confirm(context, 'Remove ${spell.name}?', yes: 'Remove')) {
+          bloc.add(SpellRemoved(spell.id));
         }
       },
     );
@@ -456,6 +476,48 @@ class _SpellTile extends StatelessWidget {
         ),
       );
     }
+  }
+}
+
+class _SpellEditSheet extends StatefulWidget {
+  const _SpellEditSheet({required this.spell, required this.onCountsChanged});
+  final Spell spell;
+  final ValueChanged<bool> onCountsChanged;
+
+  @override
+  State<_SpellEditSheet> createState() => _SpellEditSheetState();
+}
+
+class _SpellEditSheetState extends State<_SpellEditSheet> {
+  late bool _counts = widget.spell.countsTowardCap;
+
+  @override
+  Widget build(BuildContext context) {
+    final noun = widget.spell.isCantrip ? 'cantrip' : 'spell';
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(title: Text(widget.spell.name)),
+          SwitchListTile(
+            title: const Text('Counts toward spell cap'),
+            subtitle: Text(
+              'Turn off for a $noun granted by a class, race or feat.',
+            ),
+            value: _counts,
+            onChanged: (v) {
+              setState(() => _counts = v);
+              widget.onCountsChanged(v);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text('Remove $noun'),
+            onTap: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
   }
 }
 

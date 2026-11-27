@@ -531,6 +531,25 @@ void main() {
       expect(last!.warnings.single, contains('3 spells known'));
     });
 
+    test('spells flagged as not counting skip the known limit', () {
+      var c = make('Sorcerer', level: 1);
+      for (final n in ['Magic Missile', 'Shield']) {
+        c = addSpell(c, spellCatalog.firstWhere((s) => s.name == n)).character;
+      }
+      final bh = spellCatalog.firstWhere((s) => s.name == 'Burning Hands');
+      final r = addSpell(c, bh.copyWith(countsTowardCap: false));
+      expect(r.warnings, isEmpty);
+      final back = setSpellCountsTowardCap(r.character, bh.id, true);
+      expect(back.character.spells.last.countsTowardCap, isTrue);
+    });
+
+    test('countsTowardCap round-trips through JSON and defaults to true', () {
+      final sp = spellCatalog.first.copyWith(countsTowardCap: false);
+      expect(Spell.fromJson(sp.toJson()).countsTowardCap, isFalse);
+      final old = spellCatalog.first.toJson()..remove('countsTowardCap');
+      expect(Spell.fromJson(old).countsTowardCap, isTrue);
+    });
+
     test('prepared casters add leveled spells unprepared, cantrips ready', () {
       var c = make('Wizard');
       c = addSpell(
