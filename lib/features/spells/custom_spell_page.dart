@@ -128,6 +128,7 @@ class _CustomSpellPageState extends State<CustomSpellPage> {
       Spell(
         id: widget.initial?.id ?? newId('spell'),
         prepared: widget.initial?.prepared ?? true,
+        countsTowardCap: widget.initial?.countsTowardCap ?? true,
         name: t(_name),
         level: _level,
         castingTime: _time,
